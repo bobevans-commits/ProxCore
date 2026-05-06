@@ -706,7 +706,7 @@ class SettingsScreen extends StatelessWidget {
           children: [
             Text('Version 1.0.0', style: TextStyle(fontWeight: FontWeight.bold)),
             SizedBox(height: 8),
-            Text('A multi-platform proxy client supporting:'),
+            Text('A multi-kernel proxy client supporting:'),
             SizedBox(height: 4),
             Text('• sing-box'),
             Text('• mihomo (Clash)'),
