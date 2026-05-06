@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'dart:io';
+
 import '../models/config.dart';
 
 class AppUtils {
@@ -44,7 +46,28 @@ class AppUtils {
     return 'Unknown';
   }
 
+  /// 获取当前 CPU 架构名称
+  ///
+  /// 检测顺序：
+  /// 1. Dart VM 版本字符串中的 arm64/aarch64
+  /// 2. Windows PROCESSOR_ARCHITECTURE 环境变量
+  /// 3. macOS/Linux uname -m 命令输出
+  /// 默认返回 amd64
   static String getArchName() {
+    final version = Platform.version.toLowerCase();
+    if (version.contains('arm64') || version.contains('aarch64')) return 'arm64';
+    if (Platform.isWindows) {
+      final procArch =
+          Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() ?? '';
+      if (procArch.contains('ARM64')) return 'arm64';
+    }
+    if (Platform.isMacOS || Platform.isLinux) {
+      try {
+        final result = Process.runSync('uname', ['-m']);
+        final arch = result.stdout.toString().trim().toLowerCase();
+        if (arch.contains('arm64') || arch.contains('aarch64')) return 'arm64';
+      } catch (_) {}
+    }
     return 'amd64';
   }
 
@@ -70,11 +93,13 @@ class AppUtils {
     }
   }
 
+  /// 格式化延迟标签
+  ///
+  /// 返回格式：
+  /// - ms < 0: "超时"
+  /// - ms >= 0: "{ms} ms"
   static String latencyLabel(int ms) {
-    if (ms < 0) return 'Timeout';
-    if (ms < 100) return '$ms ms';
-    if (ms < 300) return '$ms ms';
-    if (ms < 1000) return '$ms ms';
+    if (ms < 0) return '超时';
     return '$ms ms';
   }
 
