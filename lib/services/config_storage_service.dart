@@ -1,176 +1,288 @@
+
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Configuration storage service using shared_preferences
-class ConfigStorageService extends ChangeNotifier {
-  static const String _keySubscriptions = 'subscriptions';
-  static const String _keyCurrentConfig = 'current_config';
-  static const String _keySettings = 'settings';
+import '../models/config.dart';
 
-  Map<String, dynamic> _storage = {};
-  bool _isLoaded = false;
+class ConfigStorageService {
+  static const _keyProxyConfig = 'proxy_config';
+  static const _keyNodes = 'nodes';
+  static const _keyRoutingRules = 'routing_rules';
+  static const _keyActiveKernel = 'active_kernel';
+  static const _keySubscriptions = 'subscriptions';
 
-  // Getters
-  bool get isLoaded => _isLoaded;
+  SharedPreferences? _prefs;
 
-  /// Initialize storage (load from disk)
-  Future<void> initialize() async {
+  bool get isInitialized => _prefs != null;
+
+  SharedPreferences get prefs {
+    if (_prefs == null) throw StateError('ConfigStorageService not initialized');
+    return _prefs!;
+  }
+
+  Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+  }
+
+  void initSync() {
+    if (_prefs != null) return;
+    SharedPreferences.getInstance().then((prefs) => _prefs = prefs);
+  }
+
+  // ProxyConfig
+  ProxyConfig loadProxyConfig() {
     try {
-      // In a real app, this would load from shared_preferences or file system
-      // For now, we'll use in-memory storage
-      _storage = {};
-      _isLoaded = true;
-      notifyListeners();
+      final jsonStr = prefs.getString(_keyProxyConfig);
+      if (jsonStr != null) {
+        return ProxyConfig.fromJson(
+          jsonDecode(jsonStr) as Map<String, dynamic>,
+        );
+      }
     } catch (e) {
-      debugPrint('Failed to initialize storage: $e');
-      _isLoaded = true;
-      notifyListeners();
+      debugPrint('ConfigStorageService: loadProxyConfig error: $e');
     }
+    return ProxyConfig();
   }
 
-  /// Save subscriptions
-  Future<void> saveSubscriptions(List<Map<String, dynamic>> subscriptions) async {
-    _storage[_keySubscriptions] = jsonEncode(subscriptions);
-    notifyListeners();
-    // In real app: await SharedPreferences.getInstance().then((prefs) => prefs.setString(_keySubscriptions, jsonEncode(subscriptions)));
-  }
-
-  /// Load subscriptions
-  List<Map<String, dynamic>>? loadSubscriptions() {
-    final data = _storage[_keySubscriptions];
-    if (data == null) return null;
-    
+  Future<bool> saveProxyConfig(ProxyConfig config) async {
     try {
-      final list = jsonDecode(data) as List;
-      return list.map((e) => Map<String, dynamic>.from(e)).toList();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Save current configuration
-  Future<void> saveCurrentConfig(Map<String, dynamic> config) async {
-    _storage[_keyCurrentConfig] = jsonEncode(config);
-    notifyListeners();
-  }
-
-  /// Load current configuration
-  Map<String, dynamic>? loadCurrentConfig() {
-    final data = _storage[_keyCurrentConfig];
-    if (data == null) return null;
-    
-    try {
-      return jsonDecode(data) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Save settings
-  Future<void> saveSettings(Map<String, dynamic> settings) async {
-    _storage[_keySettings] = jsonEncode(settings);
-    notifyListeners();
-  }
-
-  /// Load settings
-  Map<String, dynamic>? loadSettings() {
-    final data = _storage[_keySettings];
-    if (data == null) return null;
-    
-    try {
-      return jsonDecode(data) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Clear all stored data
-  Future<void> clearAll() async {
-    _storage.clear();
-    notifyListeners();
-  }
-
-  /// Export all data to JSON string
-  String exportAll() {
-    return jsonEncode(_storage);
-  }
-
-  /// Import data from JSON string
-  Future<void> importAll(String jsonString) async {
-    try {
-      _storage = jsonDecode(jsonString) as Map<String, dynamic>;
-      notifyListeners();
+      final jsonStr = jsonEncode(config.toJson());
+      return prefs.setString(_keyProxyConfig, jsonStr);
     } catch (e) {
-      throw Exception('Failed to import data: $e');
+      debugPrint('ConfigStorageService: saveProxyConfig error: $e');
+      return false;
     }
+  }
+
+  // Nodes
+  List<NodeConfig> loadNodes() {
+    try {
+      final jsonStr = prefs.getString(_keyNodes);
+      if (jsonStr != null) {
+        final list = jsonDecode(jsonStr) as List;
+        return list
+            .map((n) => NodeConfig.fromJson(n as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('ConfigStorageService: loadNodes error: $e');
+    }
+    return [];
+  }
+
+  Future<bool> saveNodes(List<NodeConfig> nodes) async {
+    try {
+      final jsonStr = jsonEncode(nodes.map((n) => n.toJson()).toList());
+      return prefs.setString(_keyNodes, jsonStr);
+    } catch (e) {
+      debugPrint('ConfigStorageService: saveNodes error: $e');
+      return false;
+    }
+  }
+
+  // RoutingRules
+  List<RoutingRule> loadRoutingRules() {
+    try {
+      final jsonStr = prefs.getString(_keyRoutingRules);
+      if (jsonStr != null) {
+        final list = jsonDecode(jsonStr) as List;
+        return list
+            .map((r) => RoutingRule.fromJson(r as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('ConfigStorageService: loadRoutingRules error: $e');
+    }
+    return [];
+  }
+
+  Future<bool> saveRoutingRules(List<RoutingRule> rules) async {
+    try {
+      final jsonStr = jsonEncode(rules.map((r) => r.toJson()).toList());
+      return prefs.setString(_keyRoutingRules, jsonStr);
+    } catch (e) {
+      debugPrint('ConfigStorageService: saveRoutingRules error: $e');
+      return false;
+    }
+  }
+
+  // ActiveKernel
+  KernelType loadActiveKernel() {
+    final name = prefs.getString(_keyActiveKernel);
+    if (name != null) {
+      return KernelType.fromName(name);
+    }
+    return KernelType.singbox;
+  }
+
+  Future<bool> saveActiveKernel(KernelType type) async {
+    return prefs.setString(_keyActiveKernel, type.name);
+  }
+
+  // Subscriptions
+  List<SubscriptionInfo> loadSubscriptions() {
+    try {
+      final jsonStr = prefs.getString(_keySubscriptions);
+      if (jsonStr != null) {
+        final list = jsonDecode(jsonStr) as List;
+        return list
+            .map((s) => SubscriptionInfo.fromJson(s as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('ConfigStorageService: loadSubscriptions error: $e');
+    }
+    return [];
+  }
+
+  Future<bool> saveSubscriptions(List<SubscriptionInfo> subscriptions) async {
+    try {
+      final jsonStr = jsonEncode(subscriptions.map((s) => s.toJson()).toList());
+      return prefs.setString(_keySubscriptions, jsonStr);
+    } catch (e) {
+      debugPrint('ConfigStorageService: saveSubscriptions error: $e');
+      return false;
+    }
+  }
+
+  // Import/Export
+  Future<String> exportConfig() async {
+    final config = loadProxyConfig();
+    final nodes = loadNodes();
+    final rules = loadRoutingRules();
+    final subs = loadSubscriptions();
+    final kernel = loadActiveKernel();
+
+    final exportData = {
+      'proxy_config': config.toJson(),
+      'nodes': nodes.map((n) => n.toJson()).toList(),
+      'routing_rules': rules.map((r) => r.toJson()).toList(),
+      'subscriptions': subs.map((s) => s.toJson()).toList(),
+      'active_kernel': kernel.name,
+      'export_time': DateTime.now().toIso8601String(),
+      'version': '1.0.0',
+    };
+
+    return const JsonEncoder.withIndent('  ').convert(exportData);
+  }
+
+  Future<bool> importConfig(String jsonStr) async {
+    try {
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      if (data['proxy_config'] != null) {
+        await saveProxyConfig(
+          ProxyConfig.fromJson(data['proxy_config'] as Map<String, dynamic>),
+        );
+      }
+
+      if (data['nodes'] != null) {
+        await saveNodes(
+          (data['nodes'] as List)
+              .map((n) => NodeConfig.fromJson(n as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+
+      if (data['routing_rules'] != null) {
+        await saveRoutingRules(
+          (data['routing_rules'] as List)
+              .map((r) => RoutingRule.fromJson(r as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+
+      if (data['subscriptions'] != null) {
+        await saveSubscriptions(
+          (data['subscriptions'] as List)
+              .map((s) => SubscriptionInfo.fromJson(s as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+
+      if (data['active_kernel'] != null) {
+        await saveActiveKernel(KernelType.fromName(data['active_kernel'] as String));
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('ConfigStorageService: importConfig error: $e');
+      return false;
+    }
+  }
+
+  Future<String> get configDirPath async {
+    final appDir = await getApplicationSupportDirectory();
+    return appDir.path;
+  }
+
+  Future<String> saveConfigFile(String filename, String content) async {
+    final dir = await getApplicationSupportDirectory();
+    final file = File('${dir.path}/$filename');
+    await file.writeAsString(content);
+    return file.path;
+  }
+
+  Future<String?> readConfigFile(String filename) async {
+    final dir = await getApplicationSupportDirectory();
+    final file = File('${dir.path}/$filename');
+    if (await file.exists()) {
+      return await file.readAsString();
+    }
+    return null;
   }
 }
 
-/// App settings model
-class AppSettings {
-  final bool autoStart;
-  final bool startOnBoot;
-  final bool minimizeToTray;
-  final bool darkMode;
-  final String language;
-  final int defaultPort;
-  final bool enableTunByDefault;
-  final String logLevel;
+class SubscriptionInfo {
+  final String id;
+  final String name;
+  final String url;
+  final int updateIntervalMinutes;
+  final DateTime? lastUpdated;
 
-  AppSettings({
-    this.autoStart = false,
-    this.startOnBoot = false,
-    this.minimizeToTray = true,
-    this.darkMode = false,
-    this.language = 'en',
-    this.defaultPort = 2080,
-    this.enableTunByDefault = false,
-    this.logLevel = 'info',
+  const SubscriptionInfo({
+    required this.id,
+    required this.name,
+    required this.url,
+    this.updateIntervalMinutes = 60,
+    this.lastUpdated,
   });
 
+  SubscriptionInfo copyWith({
+    String? id,
+    String? name,
+    String? url,
+    int? updateIntervalMinutes,
+    DateTime? lastUpdated,
+  }) {
+    return SubscriptionInfo(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      url: url ?? this.url,
+      updateIntervalMinutes: updateIntervalMinutes ?? this.updateIntervalMinutes,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
-        'autoStart': autoStart,
-        'startOnBoot': startOnBoot,
-        'minimizeToTray': minimizeToTray,
-        'darkMode': darkMode,
-        'language': language,
-        'defaultPort': defaultPort,
-        'enableTunByDefault': enableTunByDefault,
-        'logLevel': logLevel,
+        'id': id,
+        'name': name,
+        'url': url,
+        'update_interval_minutes': updateIntervalMinutes,
+        'last_updated': lastUpdated?.toIso8601String(),
       };
 
-  static AppSettings fromJson(Map<String, dynamic> json) {
-    return AppSettings(
-      autoStart: json['autoStart'] ?? false,
-      startOnBoot: json['startOnBoot'] ?? false,
-      minimizeToTray: json['minimizeToTray'] ?? true,
-      darkMode: json['darkMode'] ?? false,
-      language: json['language'] ?? 'en',
-      defaultPort: json['defaultPort'] ?? 2080,
-      enableTunByDefault: json['enableTunByDefault'] ?? false,
-      logLevel: json['logLevel'] ?? 'info',
-    );
-  }
-
-  AppSettings copyWith({
-    bool? autoStart,
-    bool? startOnBoot,
-    bool? minimizeToTray,
-    bool? darkMode,
-    String? language,
-    int? defaultPort,
-    bool? enableTunByDefault,
-    String? logLevel,
-  }) {
-    return AppSettings(
-      autoStart: autoStart ?? this.autoStart,
-      startOnBoot: startOnBoot ?? this.startOnBoot,
-      minimizeToTray: minimizeToTray ?? this.minimizeToTray,
-      darkMode: darkMode ?? this.darkMode,
-      language: language ?? this.language,
-      defaultPort: defaultPort ?? this.defaultPort,
-      enableTunByDefault: enableTunByDefault ?? this.enableTunByDefault,
-      logLevel: logLevel ?? this.logLevel,
-    );
-  }
+  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) => SubscriptionInfo(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        url: json['url'] as String,
+        updateIntervalMinutes: json['update_interval_minutes'] as int? ?? 60,
+        lastUpdated: json['last_updated'] != null
+            ? DateTime.parse(json['last_updated'] as String)
+            : null,
+      );
 }

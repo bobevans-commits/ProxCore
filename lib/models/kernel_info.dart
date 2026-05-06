@@ -1,120 +1,136 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+
 import 'config.dart';
 
-/// 内核信息模型
 class KernelInfo {
   final KernelType type;
   final String version;
-  final String? currentPath;
-  final bool isDownloaded;
-  final DateTime? lastUpdated;
-  final List<String> supportedProtocols;
+  final String binaryPath;
+  final String downloadUrl;
+  final String platform;
+  final String arch;
+  final int fileSize;
+  final String sha256;
 
-  KernelInfo({
+  const KernelInfo({
     required this.type,
-    required this.version,
-    this.currentPath,
-    this.isDownloaded = false,
-    this.lastUpdated,
-    this.supportedProtocols = const [],
+    this.version = '',
+    this.binaryPath = '',
+    this.downloadUrl = '',
+    this.platform = '',
+    this.arch = '',
+    this.fileSize = 0,
+    this.sha256 = '',
   });
-
-  factory KernelInfo.fromJson(Map<String, dynamic> json) {
-    return KernelInfo(
-      type: KernelTypeExtension.fromName(json['type'] ?? ''),
-      version: json['version'] ?? '',
-      currentPath: json['current_path'],
-      isDownloaded: json['is_downloaded'] ?? false,
-      lastUpdated: json['last_updated'] != null 
-          ? DateTime.parse(json['last_updated']) 
-          : null,
-      supportedProtocols: (json['supported_protocols'] as List?)?.cast<String>() ?? [],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'type': type.name,
-      'version': version,
-      'current_path': currentPath,
-      'is_downloaded': isDownloaded,
-      'last_updated': lastUpdated?.toIso8601String(),
-      'supported_protocols': supportedProtocols,
-    };
-  }
 
   KernelInfo copyWith({
     KernelType? type,
     String? version,
-    String? currentPath,
-    bool? isDownloaded,
-    DateTime? lastUpdated,
-    List<String>? supportedProtocols,
+    String? binaryPath,
+    String? downloadUrl,
+    String? platform,
+    String? arch,
+    int? fileSize,
+    String? sha256,
   }) {
     return KernelInfo(
       type: type ?? this.type,
       version: version ?? this.version,
-      currentPath: currentPath ?? this.currentPath,
-      isDownloaded: isDownloaded ?? this.isDownloaded,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
-      supportedProtocols: supportedProtocols ?? this.supportedProtocols,
+      binaryPath: binaryPath ?? this.binaryPath,
+      downloadUrl: downloadUrl ?? this.downloadUrl,
+      platform: platform ?? this.platform,
+      arch: arch ?? this.arch,
+      fileSize: fileSize ?? this.fileSize,
+      sha256: sha256 ?? this.sha256,
     );
+  }
+
+  String get fileName {
+    final ext = platform == 'windows' ? '.exe' : '';
+    switch (type) {
+      case KernelType.singbox:
+        return 'sing-box$ext';
+      case KernelType.mihomo:
+        return 'mihomo$ext';
+      case KernelType.v2ray:
+        return 'xray$ext';
+    }
+  }
+
+  String get displayName {
+    switch (type) {
+      case KernelType.singbox:
+        return 'sing-box';
+      case KernelType.mihomo:
+        return 'Mihomo (Clash Meta)';
+      case KernelType.v2ray:
+        return 'Xray (v2ray)';
+    }
+  }
+
+  static String getPlatform() {
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isMacOS) return 'darwin';
+    if (Platform.isLinux) return 'linux';
+    if (Platform.isAndroid) return 'android';
+    return 'unknown';
+  }
+
+  static String getArch() {
+    final version = Platform.version.toLowerCase();
+    if (version.contains('arm64') || version.contains('aarch64')) return 'arm64';
+    if (Platform.isWindows) {
+      final procArch =
+          Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() ?? '';
+      if (procArch.contains('ARM64')) return 'arm64';
+    }
+    return 'amd64';
+  }
+
+  static String buildDownloadUrl(KernelType type, String version, String platform, String arch) {
+    switch (type) {
+      case KernelType.singbox:
+        final archName = platform == 'windows' && arch == 'amd64' ? 'amd64' : arch;
+        return 'https://github.com/SagerNet/sing-box/releases/download/v$version/'
+            'sing-box-$version-$platform-$archName.zip';
+      case KernelType.mihomo:
+        final archName = arch == 'amd64' ? 'amd64' : (arch == 'arm64' ? 'arm64' : 'amd64');
+        return 'https://github.com/MetaCubeX/mihomo/releases/download/v$version/'
+            'mihomo-$platform-$archName-v$version.gz';
+      case KernelType.v2ray:
+        final archName = platform == 'windows' && arch == 'amd64' ? '64' : arch;
+        return 'https://github.com/XTLS/Xray-core/releases/download/v$version/'
+            'Xray-$platform-$archName.zip';
+    }
   }
 }
 
-/// 内核发布版本信息
-class KernelRelease {
-  final String version;
-  final String downloadUrl;
-  final String? changelog;
-  final DateTime publishedAt;
-  final List<String> assets;
+class KernelReleaseInfo {
+  final String tagName;
+  final String name;
+  final String publishedAt;
+  final String htmlUrl;
+  final List<KernelAssetInfo> assets;
 
-  KernelRelease({
-    required this.version,
-    required this.downloadUrl,
-    this.changelog,
+  const KernelReleaseInfo({
+    required this.tagName,
+    required this.name,
     required this.publishedAt,
+    required this.htmlUrl,
     this.assets = const [],
   });
 
-  factory KernelRelease.fromJson(Map<String, dynamic> json) {
-    return KernelRelease(
-      version: json['version']?.replaceAll('v', '') ?? '',
-      downloadUrl: json['download_url'] ?? '',
-      changelog: json['changelog'],
-      publishedAt: DateTime.parse(json['published_at']),
-      assets: (json['assets'] as List?)?.cast<String>() ?? [],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'version': version,
-      'download_url': downloadUrl,
-      'changelog': changelog,
-      'published_at': publishedAt.toIso8601String(),
-      'assets': assets,
-    };
-  }
+  String get version => tagName.replaceFirst('v', '');
 }
 
-/// 内核下载进度
-class DownloadProgress {
-  final int received;
-  final int total;
-  final double progress;
-  final String speed;
+class KernelAssetInfo {
+  final String name;
+  final String url;
+  final int size;
 
-  DownloadProgress({
-    required this.received,
-    required this.total,
-    required this.progress,
-    required this.speed,
+  const KernelAssetInfo({
+    required this.name,
+    required this.url,
+    required this.size,
   });
-
-  @override
-  String toString() {
-    return 'DownloadProgress(${(progress * 100).toStringAsFixed(1)}%, $speed)';
-  }
 }

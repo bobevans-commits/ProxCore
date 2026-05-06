@@ -1,463 +1,771 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+// 配置适配器
+// 将应用内部数据模型转换为各内核可识别的配置格式
+// 支持 sing-box / mihomo / v2ray 三种内核配置生成
 
-/// 配置适配器 - 负责将通用配置转换为不同内核所需的格式
+import '../models/config.dart';
+import '../models/singbox_config.dart';
+
+/// 配置适配器 — 将应用配置转换为内核配置格式
+///
+/// 职责：
+/// - 生成 sing-box JSON 配置（inbounds / outbounds / route / DNS / TUN）
+/// - 生成 mihomo YAML 兼容的 JSON 配置（proxies / rules / DNS / TUN）
+/// - 生成 v2ray JSON 配置（inbounds / outbounds / routing / DNS / TUN）
+/// - 将 NodeConfig 转换为各内核的出站代理格式
+/// - 支持 9 种代理协议：VMess / VLESS / Trojan / Shadowsocks / Hysteria / Hysteria2 / TUIC / Naive / WireGuard
 class ConfigAdapter {
-  /// 将通用配置转换为 sing-box 格式
-  static Map<String, dynamic> adaptToSingBox(Map<String, dynamic> config) {
+  ConfigAdapter._();
+
+  /// 构建 DNS 配置
+  ///
+  /// 支持四种 DNS 模式：
+  /// - system：使用系统 DNS，不生成配置
+  /// - custom：自定义 DNS 服务器列表
+  /// - doh：DNS-over-HTTPS
+  /// - dot：DNS-over-TLS
+  static Map<String, dynamic> _buildDnsConfig(ProxyConfig proxyConfig) {
+    final dns = proxyConfig.dnsConfig;
+    if (dns.mode == DnsMode.system) return {};
+
+    final servers = <Map<String, dynamic>>[];
+    final fallback = <Map<String, dynamic>>[];
+
+    switch (dns.mode) {
+      case DnsMode.system:
+        break;
+      case DnsMode.custom:
+        for (final s in dns.servers) {
+          servers.add({'address': s, 'tag': 'remote_${s.replaceAll('.', '_')}'});
+        }
+        for (final s in dns.fallbackServers) {
+          fallback.add({'address': s, 'tag': 'local_${s.replaceAll('.', '_')}'});
+        }
+      case DnsMode.doh:
+        servers.add({'address': dns.dohUrl, 'tag': 'remote_doh'});
+        for (final s in dns.fallbackServers) {
+          fallback.add({'address': s, 'tag': 'local_${s.replaceAll('.', '_')}'});
+        }
+      case DnsMode.dot:
+        servers.add({'address': 'tls://${dns.dotServer}', 'tag': 'remote_dot'});
+        for (final s in dns.fallbackServers) {
+          fallback.add({'address': s, 'tag': 'local_${s.replaceAll('.', '_')}'});
+        }
+    }
+
     return {
-      'log': {
-        'level': config['log_level'] ?? 'info',
-        'timestamp': true,
+      'dns': {
+        'servers': [...servers, ...fallback],
+        'rules': [
+          {
+            'outbound': 'any',
+            'server': fallback.isNotEmpty ? fallback.first['tag'] : 'local',
+          },
+        ],
+        'strategy': dns.remoteResolve ? 'prefer_ipv4' : 'ipv4_only',
+        'independent_cache': true,
       },
-      'inbounds': _adaptInboundsForSingBox(config),
-      'outbounds': _adaptOutboundsForSingBox(config),
-      'route': _adaptRouteForSingBox(config),
-      'dns': _adaptDnsForSingBox(config),
-      'experimental': {
-        'clash_api': {
-          'external_controller': '127.0.0.1:9090',
-          'external_ui': 'ui',
+    };
+  }
+
+  /// 生成 sing-box 内核配置
+  ///
+  /// 配置结构：
+  /// - inbounds：SOCKS + HTTP 入站，TUN 模式时追加 TUN 入站
+  /// - outbounds：代理出站 + urltest 自动选择 + direct/block/dns
+  /// - route：路由规则（广告屏蔽 + 用户自定义规则）
+  /// - experimental：Clash API + TUN 配置
+  /// - dns：DNS 服务器配置
+  static Map<String, dynamic> toSingboxConfig(
+    ProxyConfig proxyConfig,
+    NodeConfig? activeNode,
+    List<RoutingRule> routingRules,
+  ) {
+    final config = SingboxConfig.defaultConfig(
+      socksPort: proxyConfig.socksPort,
+      httpPort: proxyConfig.httpPort,
+    );
+
+    final outbounds = <SingboxOutbound>[];
+
+    if (activeNode != null) {
+      final proxyOutbound = _nodeToSingboxOutbound(activeNode);
+      outbounds.add(proxyOutbound);
+      outbounds.add(const SingboxOutbound(
+        type: 'urltest',
+        tag: 'auto',
+        options: {
+          'outbounds': ['proxy'],
+          'url': 'https://www.gstatic.com/generate_204',
+          'interval': '5m',
         },
-        'tun': config['tun_enabled'] == true
-            ? {
-                'enable': true,
-                'stack': 'mixed',
-                'auto_route': true,
-              }
-            : null,
-      },
-    };
-  }
-
-  /// 将通用配置转换为 mihomo (Clash Meta) 格式
-  static Map<String, dynamic> adaptToMihomo(Map<String, dynamic> config) {
-    return {
-      'port': config['http_port'] ?? 7890,
-      'socks-port': config['socks_port'] ?? 7891,
-      'allow-lan': false,
-      'mode': 'rule',
-      'log-level': config['log_level'] ?? 'info',
-      'dns': _adaptDnsForMihomo(config),
-      'tun': config['tun_enabled'] == true
-          ? {
-              'enable': true,
-              'stack': 'mixed',
-              'auto-route': true,
-            }
-          : null,
-      'proxies': _adaptProxiesForMihomo(config),
-      'proxy-groups': _adaptProxyGroupsForMihomo(config),
-      'rules': _adaptRulesForMihomo(config),
-    };
-  }
-
-  /// 将通用配置转换为 v2ray (Xray) 格式
-  static Map<String, dynamic> adaptToV2Ray(Map<String, dynamic> config) {
-    return {
-      'log': {
-        'access': '',
-        'error': '',
-        'loglevel': config['log_level'] ?? 'info',
-      },
-      'inbounds': _adaptInboundsForV2Ray(config),
-      'outbounds': _adaptOutboundsForV2Ray(config),
-      'routing': _adaptRoutingForV2Ray(config),
-      'dns': _adaptDnsForV2Ray(config),
-    };
-  }
-
-  /// 适配入站配置为 sing-box 格式
-  static List<Map<String, dynamic>> _adaptInboundsForSingBox(
-      Map<String, dynamic> config) {
-    return [
-      {
-        'type': 'mixed',
-        'tag': 'mixed-in',
-        'listen': '127.0.0.1',
-        'listen_port': config['http_port'] ?? 2080,
-      },
-      {
-        'type': 'socks',
-        'tag': 'socks-in',
-        'listen': '127.0.0.1',
-        'listen_port': config['socks_port'] ?? 2081,
-      },
-    ];
-  }
-
-  /// 适配出站配置为 sing-box 格式
-  static List<Map<String, dynamic>> _adaptOutboundsForSingBox(
-      Map<String, dynamic> config) {
-    final outbounds = <Map<String, dynamic>>[
-      {'type': 'direct', 'tag': 'direct'},
-      {'type': 'block', 'tag': 'block'},
-      {'type': 'dns', 'tag': 'dns-out'},
-    ];
-
-    // 添加代理节点
-    final nodes = config['nodes'] as List? ?? [];
-    for (var node in nodes) {
-      final outbound = _convertNodeToSingBoxOutbound(node);
-      if (outbound != null) {
-        outbounds.add(outbound);
-      }
+      ));
     }
 
-    // 添加选择器
-    if (nodes.isNotEmpty) {
-      final proxyTags = nodes.map((n) => n['name'] as String).toList();
-      outbounds.add({
-        'type': 'selector',
-        'tag': 'proxy',
-        'outbounds': ['direct', ...proxyTags],
-      });
-      outbounds.add({
-        'type': 'urltest',
-        'tag': 'auto',
-        'outbounds': proxyTags,
-        'url': 'https://www.gstatic.com/generate_204',
-        'interval': '3m',
-      });
+    outbounds.addAll(config.outbounds);
+
+    final rules = <SingboxRouteRule>[];
+
+    if (proxyConfig.adBlocking) {
+      rules.add(const SingboxRouteRule(
+        outbound: 'block',
+        domain: [],
+        ip: [],
+        geosite: ['category-ads-all'],
+      ));
     }
 
-    return outbounds;
+    for (final r in routingRules.where((r) => r.enabled)) {
+      rules.add(SingboxRouteRule(
+        outbound: r.target,
+        domain: r.type == 'domain' ? [r.match] : [],
+        domainKeyword: r.type == 'domain_keyword' ? [r.match] : [],
+        domainSuffix: r.type == 'domain_suffix' ? [r.match] : [],
+        ip: r.type == 'ip_cidr' ? [r.match] : [],
+        geoip: r.type == 'geoip' ? [r.match] : [],
+        geosite: r.type == 'geosite' ? [r.match] : [],
+        process: r.type == 'process' ? [r.match] : [],
+        protocol: r.type == 'protocol' ? [r.match] : [],
+        port: r.type == 'port' ? [int.tryParse(r.match) ?? 0] : [],
+      ));
+    }
+
+    final clashApi = {
+      'clash_api': {
+        'external_controller': proxyConfig.lanSharing
+            ? '0.0.0.0:9090'
+            : '127.0.0.1:9090',
+        'secret': '',
+      },
+    };
+
+    final experimental = <String, dynamic>{...clashApi};
+    if (proxyConfig.tunEnabled) {
+      experimental['tun'] = {
+        'stack': 'system',
+        'auto_route': true,
+        'strict_route': true,
+      };
+    }
+
+    final listenAddr =
+        proxyConfig.lanSharing ? '0.0.0.0' : proxyConfig.localAddress;
+
+    final result = SingboxConfig(
+      inbounds: [
+        SingboxInbound(
+          type: 'socks',
+          tag: 'socks-in',
+          listenAddress: listenAddr,
+          listenPort: proxyConfig.socksPort,
+        ),
+        SingboxInbound(
+          type: 'http',
+          tag: 'http-in',
+          listenAddress: listenAddr,
+          listenPort: proxyConfig.httpPort,
+        ),
+        if (proxyConfig.tunEnabled)
+          const SingboxInbound(
+            type: 'tun',
+            tag: 'tun-in',
+            extra: {
+              'stack': 'system',
+              'auto_route': true,
+              'strict_route': true,
+            },
+          ),
+      ],
+      outbounds: outbounds,
+      route: SingboxRoute(
+        rules: rules,
+        finalOutbound: activeNode != null ? 'auto' : 'direct',
+      ),
+      experimental: experimental,
+    ).toJson();
+
+    result.addAll(_buildDnsConfig(proxyConfig));
+
+    return result;
   }
 
-  /// 将节点转换为 sing-box 出站配置
-  static Map<String, dynamic>? _convertNodeToSingBoxOutbound(
-      Map<String, dynamic> node) {
-    final type = node['type'] as String;
-    
-    switch (type.toLowerCase()) {
-      case 'vmess':
-        return {
-          'type': 'vmess',
-          'tag': node['name'],
-          'server': node['server'],
-          'server_port': node['port'],
-          'uuid': node['uuid'],
-          'security': node['security'] ?? 'auto',
-          'alter_id': node['alterId'] ?? 0,
-        };
-      case 'vless':
-        return {
-          'type': 'vless',
-          'tag': node['name'],
-          'server': node['server'],
-          'server_port': node['port'],
-          'uuid': node['uuid'],
-          'flow': node['flow'] ?? '',
-          'packet_encoding': node['packetEncoding'] ?? 'xudp',
-        };
-      case 'trojan':
-        return {
-          'type': 'trojan',
-          'tag': node['name'],
-          'server': node['server'],
-          'server_port': node['port'],
-          'password': node['password'],
-        };
-      case 'shadowsocks':
-        return {
-          'type': 'shadowsocks',
-          'tag': node['name'],
-          'server': node['server'],
-          'server_port': node['port'],
-          'method': node['method'],
-          'password': node['password'],
-        };
-      default:
-        debugPrint('Unsupported node type: $type');
-        return null;
+  /// 将 NodeConfig 转换为 sing-box 出站代理格式
+  ///
+  /// 支持 9 种协议：VMess / VLESS / Trojan / Shadowsocks /
+  /// Hysteria / Hysteria2 / TUIC / Naive / WireGuard
+  static SingboxOutbound _nodeToSingboxOutbound(NodeConfig node) {
+    final extra = Map<String, dynamic>.from(node.extra);
+
+    switch (node.protocol) {
+      case ProxyProtocol.vmess:
+        return SingboxOutbound(
+          type: 'vmess',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'uuid': extra['uuid'] ?? '',
+            'alter_id': extra['alterId'] ?? 0,
+            'security': extra['security'] ?? 'auto',
+            if (extra['network'] == 'ws')
+              'transport': {
+                'type': 'ws',
+                'path': extra['wsPath'] ?? '/',
+                if (extra['wsHost'] != null)
+                  'headers': {'Host': extra['wsHost']},
+              },
+          },
+        );
+
+      case ProxyProtocol.vless:
+        return SingboxOutbound(
+          type: 'vless',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'uuid': extra['uuid'] ?? '',
+            'flow': extra['flow'] ?? '',
+            'tls': {
+              'enabled':
+                  extra['security'] == 'tls' || extra['security'] == 'reality',
+              'server_name': extra['sni'] ?? node.address,
+              'insecure': extra['insecure'] == true,
+              if (extra['security'] == 'reality') ...{
+                'reality': {
+                  'enabled': true,
+                  'public_key': extra['publicKey'] ?? '',
+                  'short_id': extra['shortId'] ?? '',
+                },
+              },
+            },
+            if (extra['type'] == 'ws')
+              'transport': {
+                'type': 'ws',
+                'path': extra['wsPath'] ?? '/',
+              },
+          },
+        );
+
+      case ProxyProtocol.trojan:
+        return SingboxOutbound(
+          type: 'trojan',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'password': extra['password'] ?? '',
+            'tls': {
+              'enabled': true,
+              'server_name': extra['sni'] ?? node.address,
+              'insecure': extra['insecure'] == true,
+            },
+          },
+        );
+
+      case ProxyProtocol.shadowsocks:
+        return SingboxOutbound(
+          type: 'shadowsocks',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'method': extra['method'] ?? 'aes-256-gcm',
+            'password': extra['password'] ?? '',
+          },
+        );
+
+      case ProxyProtocol.hysteria2:
+        return SingboxOutbound(
+          type: 'hysteria2',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'password': extra['password'] ?? '',
+            'tls': {
+              'enabled': true,
+              'server_name': extra['sni'] ?? node.address,
+              'insecure': extra['insecure'] == true,
+            },
+          },
+        );
+
+      case ProxyProtocol.hysteria:
+        return SingboxOutbound(
+          type: 'hysteria',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'auth': extra['auth'] ?? extra['password'] ?? '',
+            'tls': {
+              'enabled': true,
+              'server_name': extra['sni'] ?? node.address,
+              'insecure': extra['insecure'] == true,
+            },
+          },
+        );
+
+      case ProxyProtocol.tuic:
+        return SingboxOutbound(
+          type: 'tuic',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'uuid': extra['uuid'] ?? '',
+            'password': extra['password'] ?? '',
+            'tls': {
+              'enabled': true,
+              'server_name': extra['sni'] ?? node.address,
+              'alpn': ['h3'],
+            },
+          },
+        );
+
+      case ProxyProtocol.naive:
+        return SingboxOutbound(
+          type: 'naive',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'username': extra['username'] ?? '',
+            'password': extra['password'] ?? '',
+            'tls': {
+              'enabled': true,
+              'server_name': extra['sni'] ?? node.address,
+            },
+          },
+        );
+
+      case ProxyProtocol.wireguard:
+        final localAddress = extra['localAddress'];
+        final localAddressList = localAddress is String
+            ? [localAddress]
+            : (localAddress as List?)?.cast<String>() ?? [];
+        return SingboxOutbound(
+          type: 'wireguard',
+          tag: 'proxy',
+          options: {
+            'server': node.address,
+            'server_port': node.port,
+            'private_key': extra['privateKey'] ?? '',
+            'peer_public_key': extra['peerPublicKey'] ?? '',
+            'local_address': localAddressList,
+          },
+        );
     }
   }
 
-  /// 适配路由配置为 sing-box 格式
-  static Map<String, dynamic> _adaptRouteForSingBox(
-      Map<String, dynamic> config) {
-    return {
-      'auto_detect_interface': true,
-      'rules': [
-        {'protocol': 'dns', 'outbound': 'dns-out'},
-        {'ip_cidr': ['192.168.0.0/16', '10.0.0.0/8'], 'outbound': 'direct'},
-      ],
-    };
-  }
-
-  /// 适配 DNS 配置为 sing-box 格式
-  static Map<String, dynamic> _adaptDnsForSingBox(
-      Map<String, dynamic> config) {
-    return {
-      'servers': [
-        {'tag': 'dns-local', 'address': '223.5.5.5'},
-        {'tag': 'dns-remote', 'address': 'tls://8.8.8.8'},
-      ],
-      'rules': [
-        {'outbound': 'any', 'server': 'dns-local'},
-      ],
-    };
-  }
-
-  /// 适配代理配置为 mihomo 格式
-  static List<Map<String, dynamic>> _adaptProxiesForMihomo(
-      Map<String, dynamic> config) {
+  /// 生成 mihomo 内核配置
+  ///
+  /// 配置结构：
+  /// - mixed-port / socks-port / port：代理端口
+  /// - tun：TUN 模式配置
+  /// - proxies：代理节点列表
+  /// - proxy-groups：代理组（PROXY 选择组）
+  /// - rules：路由规则（广告屏蔽 + 用户自定义规则 + MATCH 兜底）
+  /// - dns：DNS 配置（fake-ip 模式）
+  static Map<String, dynamic> toMihomoConfig(
+    ProxyConfig proxyConfig,
+    NodeConfig? activeNode,
+    List<RoutingRule> routingRules,
+  ) {
     final proxies = <Map<String, dynamic>>[];
-    final nodes = config['nodes'] as List? ?? [];
 
-    for (var node in nodes) {
-      final proxy = _convertNodeToMihomoProxy(node);
-      if (proxy != null) {
-        proxies.add(proxy);
+    if (activeNode != null) {
+      proxies.add(_nodeToMihomoProxy(activeNode));
+    }
+
+    final rules = <String>[];
+
+    if (proxyConfig.adBlocking) {
+      rules.add('DOMAIN-KEYWORD,ads,BLOCK');
+      rules.add('GEOSITE,category-ads-all,BLOCK');
+    }
+
+    for (final r in routingRules.where((r) => r.enabled)) {
+      switch (r.type) {
+        case 'domain':
+          rules.add('DOMAIN,${r.match},${r.target.toUpperCase()}');
+        case 'domain_keyword':
+          rules.add('DOMAIN-KEYWORD,${r.match},${r.target.toUpperCase()}');
+        case 'domain_suffix':
+          rules.add('DOMAIN-SUFFIX,${r.match},${r.target.toUpperCase()}');
+        case 'ip_cidr':
+          rules.add('IP-CIDR,${r.match},${r.target.toUpperCase()}');
+        case 'geoip':
+          rules.add('GEOIP,${r.match},${r.target.toUpperCase()}');
+        case 'geosite':
+          rules.add('GEOSITE,${r.match},${r.target.toUpperCase()}');
+        case 'process':
+          rules.add('PROCESS-NAME,${r.match},${r.target.toUpperCase()}');
+        case 'port':
+          rules.add('DST-PORT,${r.match},${r.target.toUpperCase()}');
+        default:
+          rules.add('MATCH,${r.target.toUpperCase()}');
       }
     }
 
-    return proxies;
-  }
+    rules.add('MATCH,${activeNode != null ? "PROXY" : "DIRECT"}');
 
-  /// 将节点转换为 mihomo 代理配置
-  static Map<String, dynamic>? _convertNodeToMihomoProxy(
-      Map<String, dynamic> node) {
-    final type = node['type'] as String;
-    
-    switch (type.toLowerCase()) {
-      case 'vmess':
-        return {
-          'name': node['name'],
-          'type': 'vmess',
-          'server': node['server'],
-          'port': node['port'],
-          'uuid': node['uuid'],
-          'alterId': node['alterId'] ?? 0,
-          'cipher': node['security'] ?? 'auto',
-        };
-      case 'vless':
-        return {
-          'name': node['name'],
-          'type': 'vless',
-          'server': node['server'],
-          'port': node['port'],
-          'uuid': node['uuid'],
-          'flow': node['flow'] ?? '',
-          'client-fingerprint': 'chrome',
-        };
-      case 'trojan':
-        return {
-          'name': node['name'],
-          'type': 'trojan',
-          'server': node['server'],
-          'port': node['port'],
-          'password': node['password'],
-        };
-      case 'shadowsocks':
-        return {
-          'name': node['name'],
-          'type': 'ss',
-          'server': node['server'],
-          'port': node['port'],
-          'cipher': node['method'],
-          'password': node['password'],
-        };
-      default:
-        debugPrint('Unsupported node type for mihomo: $type');
-        return null;
+    final dnsConfig = <String, dynamic>{};
+    if (proxyConfig.dnsConfig.mode != DnsMode.system) {
+      dnsConfig['dns'] = {
+        'enable': true,
+        'listen': '0.0.0.0:1053',
+        'enhanced-mode': 'fake-ip',
+        'nameserver': proxyConfig.dnsConfig.servers,
+        'fallback': proxyConfig.dnsConfig.fallbackServers,
+      };
     }
-  }
 
-  /// 适配代理组为 mihomo 格式
-  static List<Map<String, dynamic>> _adaptProxyGroupsForMihomo(
-      Map<String, dynamic> config) {
-    final nodes = config['nodes'] as List? ?? [];
-    final proxyNames = nodes.map((n) => n['name'] as String).toList();
-
-    return [
-      {
-        'name': 'PROXY',
-        'type': 'select',
-        'proxies': ['DIRECT', ...proxyNames],
-      },
-      {
-        'name': 'AUTO',
-        'type': 'url-test',
-        'proxies': proxyNames,
-        'url': 'https://www.gstatic.com/generate_204',
-        'interval': 300,
-      },
-    ];
-  }
-
-  /// 适配规则为 mihomo 格式
-  static List<String> _adaptRulesForMihomo(Map<String, dynamic> config) {
-    return [
-      'DST-PORT,53,DIRECT',
-      'IP-CIDR,192.168.0.0/16,DIRECT,no-resolve',
-      'IP-CIDR,10.0.0.0/8,DIRECT,no-resolve',
-      'GEOIP,CN,DIRECT',
-      'MATCH,PROXY',
-    ];
-  }
-
-  /// 适配 DNS 配置为 mihomo 格式
-  static Map<String, dynamic> _adaptDnsForMihomo(Map<String, dynamic> config) {
     return {
-      'enable': true,
-      'listen': '0.0.0.0:53',
-      'nameserver': ['223.5.5.5', '114.114.114.114'],
-      'fallback': ['tls://8.8.8.8', 'tls://1.1.1.1'],
+      'mixed-port': proxyConfig.localPort,
+      'socks-port': proxyConfig.socksPort,
+      'port': proxyConfig.httpPort,
+      'allow-lan': proxyConfig.lanSharing,
+      'bind-address': proxyConfig.lanSharing ? '*' : '127.0.0.1',
+      'mode': 'rule',
+      'log-level': 'info',
+      if (proxyConfig.tunEnabled)
+        'tun': {
+          'enable': true,
+          'stack': 'system',
+          'auto-route': true,
+          'auto-detect-interface': true,
+        },
+      if (proxies.isNotEmpty) 'proxies': proxies,
+      'proxy-groups': [
+        {
+          'name': 'PROXY',
+          'type': 'select',
+          'proxies':
+              activeNode != null ? [activeNode.name] : ['DIRECT'],
+        },
+      ],
+      'rules': rules,
+      ...dnsConfig,
     };
   }
 
-  /// 适配入站配置为 v2ray 格式
-  static List<Map<String, dynamic>> _adaptInboundsForV2Ray(
-      Map<String, dynamic> config) {
-    return [
-      {
-        'port': config['http_port'] ?? 2080,
-        'listen': '127.0.0.1',
-        'protocol': 'dokodemo-door',
-        'settings': {'network': 'tcp,udp', 'followRedirect': true},
-        'sniffing': {
-          'enabled': true,
-          'destOverride': ['http', 'tls'],
-        },
-      },
-      {
-        'port': config['socks_port'] ?? 2081,
-        'listen': '127.0.0.1',
-        'protocol': 'socks',
-        'settings': {
-          'auth': 'noauth',
-          'udp': true,
-        },
-      },
-    ];
+  /// 将 NodeConfig 转换为 mihomo 代理格式
+  ///
+  /// 支持 VMess / VLESS / Trojan / Shadowsocks / Hysteria2
+  /// 其他协议降级为 socks5
+  static Map<String, dynamic> _nodeToMihomoProxy(NodeConfig node) {
+    final extra = Map<String, dynamic>.from(node.extra);
+
+    switch (node.protocol) {
+      case ProxyProtocol.vmess:
+        return {
+          'name': node.name,
+          'type': 'vmess',
+          'server': node.address,
+          'port': node.port,
+          'uuid': extra['uuid'] ?? '',
+          'alterId': extra['alterId'] ?? 0,
+          'cipher': extra['security'] ?? 'auto',
+          'network': extra['network'] ?? 'tcp',
+        };
+      case ProxyProtocol.vless:
+        return {
+          'name': node.name,
+          'type': 'vless',
+          'server': node.address,
+          'port': node.port,
+          'uuid': extra['uuid'] ?? '',
+          'flow': extra['flow'] ?? '',
+          'network': extra['type'] ?? 'tcp',
+          'tls': true,
+          'servername': extra['sni'] ?? node.address,
+        };
+      case ProxyProtocol.trojan:
+        return {
+          'name': node.name,
+          'type': 'trojan',
+          'server': node.address,
+          'port': node.port,
+          'password': extra['password'] ?? '',
+          'sni': extra['sni'] ?? node.address,
+        };
+      case ProxyProtocol.shadowsocks:
+        return {
+          'name': node.name,
+          'type': 'ss',
+          'server': node.address,
+          'port': node.port,
+          'cipher': extra['method'] ?? 'aes-256-gcm',
+          'password': extra['password'] ?? '',
+        };
+      case ProxyProtocol.hysteria2:
+        return {
+          'name': node.name,
+          'type': 'hysteria2',
+          'server': node.address,
+          'port': node.port,
+          'password': extra['password'] ?? '',
+          'sni': extra['sni'] ?? node.address,
+        };
+      default:
+        return {
+          'name': node.name,
+          'type': 'socks5',
+          'server': node.address,
+          'port': node.port,
+        };
+    }
   }
 
-  /// 适配出站配置为 v2ray 格式
-  static List<Map<String, dynamic>> _adaptOutboundsForV2Ray(
-      Map<String, dynamic> config) {
+  /// 生成 v2ray 内核配置
+  ///
+  /// 配置结构：
+  /// - inbounds：SOCKS + HTTP 入站，TUN 模式时追加 dokodemo-door
+  /// - outbounds：代理出站 + direct + block
+  /// - routing：路由规则（广告屏蔽 + 用户自定义规则）
+  /// - dns：DNS 服务器配置
+  static Map<String, dynamic> toV2rayConfig(
+    ProxyConfig proxyConfig,
+    NodeConfig? activeNode,
+    List<RoutingRule> routingRules,
+  ) {
     final outbounds = <Map<String, dynamic>>[
-      {'protocol': 'freedom', 'tag': 'direct'},
-      {'protocol': 'blackhole', 'tag': 'block'},
+      {'tag': 'direct', 'protocol': 'freedom'},
+      {'tag': 'block', 'protocol': 'blackhole'},
     ];
 
-    // 添加代理节点
-    final nodes = config['nodes'] as List? ?? [];
-    for (var node in nodes) {
-      final outbound = _convertNodeToV2RayOutbound(node);
-      if (outbound != null) {
-        outbounds.add(outbound);
+    if (activeNode != null) {
+      outbounds.insert(0, _nodeToV2rayOutbound(activeNode));
+    }
+
+    final rules = <Map<String, dynamic>>[];
+
+    if (proxyConfig.adBlocking) {
+      rules.add({
+        'type': 'field',
+        'domain': ['geosite:category-ads-all'],
+        'outboundTag': 'block',
+      });
+    }
+
+    for (final r in routingRules.where((r) => r.enabled)) {
+      switch (r.type) {
+        case 'domain':
+          rules.add({
+            'type': 'field',
+            'domain': [r.match],
+            'outboundTag': r.target,
+          });
+        case 'domain_keyword':
+          rules.add({
+            'type': 'field',
+            'domain': ['keyword:${r.match}'],
+            'outboundTag': r.target,
+          });
+        case 'domain_suffix':
+          rules.add({
+            'type': 'field',
+            'domain': ['domain-suffix:${r.match}'],
+            'outboundTag': r.target,
+          });
+        case 'ip_cidr':
+          rules.add({
+            'type': 'field',
+            'ip': [r.match],
+            'outboundTag': r.target,
+          });
+        case 'geoip':
+          rules.add({
+            'type': 'field',
+            'ip': ['geoip:${r.match}'],
+            'outboundTag': r.target,
+          });
+        case 'geosite':
+          rules.add({
+            'type': 'field',
+            'domain': ['geosite:${r.match}'],
+            'outboundTag': r.target,
+          });
+        case 'process':
+          rules.add({
+            'type': 'field',
+            'process': [r.match],
+            'outboundTag': r.target,
+          });
+        case 'port':
+          rules.add({
+            'type': 'field',
+            'port': r.match,
+            'outboundTag': r.target,
+          });
+        default:
+          rules.add({
+            'type': 'field',
+            'outboundTag': r.target,
+          });
       }
     }
 
-    return outbounds;
+    final listenAddr =
+        proxyConfig.lanSharing ? '0.0.0.0' : proxyConfig.localAddress;
+
+    final dnsConfig = <String, dynamic>{};
+    if (proxyConfig.dnsConfig.mode != DnsMode.system) {
+      dnsConfig['dns'] = {
+        'servers': [
+          ...proxyConfig.dnsConfig.servers.map((s) => {
+                'address': s,
+                'skipFallback': false,
+              }),
+          ...proxyConfig.dnsConfig.fallbackServers.map((s) => {
+                'address': s,
+                'skipFallback': true,
+              }),
+        ],
+        'queryStrategy': 'UseIP',
+      };
+    }
+
+    return {
+      'log': {'loglevel': 'info'},
+      'inbounds': [
+        {
+          'tag': 'socks',
+          'protocol': 'socks',
+          'listen': listenAddr,
+          'port': proxyConfig.socksPort,
+        },
+        {
+          'tag': 'http',
+          'protocol': 'http',
+          'listen': listenAddr,
+          'port': proxyConfig.httpPort,
+        },
+        if (proxyConfig.tunEnabled)
+          {
+            'tag': 'tun',
+            'protocol': 'dokodemo-door',
+            'listen': '0.0.0.0',
+            'port': 0,
+            'settings': {
+              'network': 'tcp,udp',
+              'followRedirect': true,
+            },
+            'streamSettings': {
+              'sockopt': {
+                'tproxy': 'tun',
+              },
+            },
+          },
+      ],
+      'outbounds': outbounds,
+      'routing': {
+        'rules': rules,
+        'domainStrategy': 'IPIfNonMatch',
+      },
+      ...dnsConfig,
+    };
   }
 
-  /// 将节点转换为 v2ray 出站配置
-  static Map<String, dynamic>? _convertNodeToV2RayOutbound(
-      Map<String, dynamic> node) {
-    final type = node['type'] as String;
-    
-    switch (type.toLowerCase()) {
-      case 'vmess':
+  /// 将 NodeConfig 转换为 v2ray 出站代理格式
+  ///
+  /// 支持 VMess / VLESS / Trojan / Shadowsocks
+  /// 其他协议降级为 socks
+  static Map<String, dynamic> _nodeToV2rayOutbound(NodeConfig node) {
+    final extra = Map<String, dynamic>.from(node.extra);
+
+    switch (node.protocol) {
+      case ProxyProtocol.vmess:
         return {
+          'tag': 'proxy',
           'protocol': 'vmess',
-          'tag': node['name'],
-          'streamSettings': _getStreamSettings(node),
           'settings': {
             'vnext': [
               {
-                'address': node['server'],
-                'port': node['port'],
+                'address': node.address,
+                'port': node.port,
                 'users': [
                   {
-                    'id': node['uuid'],
-                    'alterId': node['alterId'] ?? 0,
-                    'security': node['security'] ?? 'auto',
-                  }
+                    'id': extra['uuid'] ?? '',
+                    'alterId': extra['alterId'] ?? 0,
+                    'security': extra['security'] ?? 'auto',
+                  },
                 ],
-              }
+              },
             ],
           },
         };
-      case 'trojan':
+      case ProxyProtocol.vless:
         return {
+          'tag': 'proxy',
+          'protocol': 'vless',
+          'settings': {
+            'vnext': [
+              {
+                'address': node.address,
+                'port': node.port,
+                'users': [
+                  {
+                    'id': extra['uuid'] ?? '',
+                    'flow': extra['flow'] ?? '',
+                    'encryption': 'none',
+                  },
+                ],
+              },
+            ],
+          },
+          'streamSettings': {
+            'network': extra['type'] ?? 'tcp',
+            'security': extra['security'] ?? 'none',
+            if (extra['sni'] != null)
+              'tlsSettings': {
+                'serverName': extra['sni'],
+              },
+          },
+        };
+      case ProxyProtocol.trojan:
+        return {
+          'tag': 'proxy',
           'protocol': 'trojan',
-          'tag': node['name'],
-          'streamSettings': _getStreamSettings(node),
           'settings': {
             'servers': [
               {
-                'address': node['server'],
-                'port': node['port'],
-                'password': node['password'],
-              }
+                'address': node.address,
+                'port': node.port,
+                'password': extra['password'] ?? '',
+              },
+            ],
+          },
+        };
+      case ProxyProtocol.shadowsocks:
+        return {
+          'tag': 'proxy',
+          'protocol': 'shadowsocks',
+          'settings': {
+            'servers': [
+              {
+                'address': node.address,
+                'port': node.port,
+                'method': extra['method'] ?? 'aes-256-gcm',
+                'password': extra['password'] ?? '',
+              },
             ],
           },
         };
       default:
-        debugPrint('Unsupported node type for v2ray: $type');
-        return null;
+        return {
+          'tag': 'proxy',
+          'protocol': 'socks',
+          'settings': {
+            'servers': [
+              {
+                'address': node.address,
+                'port': node.port,
+              },
+            ],
+          },
+        };
     }
-  }
-
-  /// 获取流设置
-  static Map<String, dynamic> _getStreamSettings(Map<String, dynamic> node) {
-    final network = node['network'] ?? 'tcp';
-    final security = node['tls'] == true ? 'tls' : null;
-    
-    final settings = <String, dynamic>{
-      'network': network,
-    };
-
-    if (security != null) {
-      settings['security'] = security;
-    }
-
-    if (network == 'ws') {
-      settings['wsSettings'] = {
-        'path': node['wsPath'] ?? '/',
-        'headers': node['wsHeaders'] ?? {},
-      };
-    } else if (network == 'grpc') {
-      settings['grpcSettings'] = {
-        'serviceName': node['serviceName'] ?? '',
-      };
-    }
-
-    return settings;
-  }
-
-  /// 适配路由配置为 v2ray 格式
-  static Map<String, dynamic> _adaptRoutingForV2Ray(
-      Map<String, dynamic> config) {
-    return {
-      'domainStrategy': 'IPIfNonMatch',
-      'rules': [
-        {
-          'type': 'field',
-          'outboundTag': 'direct',
-          'ip': ['geoip:private'],
-        },
-        {
-          'type': 'field',
-          'outboundTag': 'block',
-          'protocol': ['bittorrent'],
-        },
-      ],
-    };
-  }
-
-  /// 适配 DNS 配置为 v2ray 格式
-  static Map<String, dynamic> _adaptDnsForV2Ray(Map<String, dynamic> config) {
-    return {
-      'hosts': {},
-      'servers': [
-        '223.5.5.5',
-        '8.8.8.8',
-      ],
-    };
   }
 }

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../services/proxy_service.dart';
 
-/// Log viewer screen for displaying proxy logs
 class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
 
@@ -11,265 +14,199 @@ class LogScreen extends StatefulWidget {
 }
 
 class _LogScreenState extends State<LogScreen> {
-  final List<LogEntry> _logs = [];
   final ScrollController _scrollController = ScrollController();
+  LogLevel _filterLevel = LogLevel.all;
+  StreamSubscription<String>? _logSubscription;
   bool _autoScroll = true;
-  LogLevel _filterLevel = LogLevel.debug;
+  bool _showSearch = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _simulateLogs();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _simulateLogs() {
-    // Simulate receiving logs
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _logs.add(LogEntry(
-            level: LogLevel.info,
-            message: 'Proxy service initialized',
-            timestamp: DateTime.now(),
-          ));
-        });
-      }
-    });
-
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          _logs.add(LogEntry(
-            level: LogLevel.info,
-            message: 'Listening on 127.0.0.1:2080 (mixed)',
-            timestamp: DateTime.now(),
-          ));
-          _logs.add(LogEntry(
-            level: LogLevel.info,
-            message: 'Listening on 127.0.0.1:2081 (socks)',
-            timestamp: DateTime.now(),
-          ));
-        });
-      }
-    });
-  }
-
-  void _addLog(LogLevel level, String message) {
-    setState(() {
-      _logs.add(LogEntry(level: level, message: message, timestamp: DateTime.now()));
-      // Keep only last 1000 logs
-      if (_logs.length > 1000) {
-        _logs.removeAt(0);
-      }
-    });
-
-    if (_autoScroll && _scrollController.hasClients) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (_scrollController.hasClients) {
+    final proxyService = context.read<ProxyService>();
+    _logSubscription = proxyService.logStream.listen((_) {
+      if (_autoScroll && _scrollController.hasClients) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollController.animateTo(
             _scrollController.position.maxScrollExtent,
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
           );
-        }
-      });
-    }
-  }
-
-  void _clearLogs() {
-    setState(() {
-      _logs.clear();
+        });
+      }
     });
   }
 
-  void _exportLogs() {
-    final content = _logs.map((e) => e.toString()).join('\n');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exported ${_logs.length} log entries')),
-    );
+  @override
+  void dispose() {
+    _logSubscription?.cancel();
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<String> _filterLogs(List<String> logs) {
+    var filtered = logs;
+    if (_filterLevel != LogLevel.all) {
+      filtered = filtered.where((log) {
+        switch (_filterLevel) {
+          case LogLevel.error:
+            return log.contains('[ERROR]');
+          case LogLevel.warning:
+            return log.contains('[WARN]');
+          case LogLevel.info:
+            return log.contains('[INFO]');
+          default:
+            return true;
+        }
+      }).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered
+          .where((log) => log.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
     final proxyService = context.watch<ProxyService>();
+    final theme = Theme.of(context);
+    final filteredLogs = _filterLogs(proxyService.logs);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Logs'),
-        actions: [
-          IconButton(
-            icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_bottom_outlined),
-            onPressed: () => setState(() => _autoScroll = !_autoScroll),
-            tooltip: 'Auto-scroll',
-          ),
-          PopupMenuButton<LogLevel>(
-            onSelected: (level) => setState(() => _filterLevel = level),
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(value: LogLevel.debug, child: Text('Debug')),
-              const PopupMenuItem(value: LogLevel.info, child: Text('Info')),
-              const PopupMenuItem(value: LogLevel.warning, child: Text('Warning')),
-              const PopupMenuItem(value: LogLevel.error, child: Text('Error')),
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            title: _showSearch
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: '搜索日志...',
+                      border: InputBorder.none,
+                    ),
+                    style: theme.textTheme.bodyMedium,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  )
+                : const Text('日志'),
+            actions: [
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _showSearch = !_showSearch;
+                    if (!_showSearch) {
+                      _searchQuery = '';
+                      _searchController.clear();
+                    }
+                  });
+                },
+                icon: Icon(_showSearch ? Icons.close : Icons.search),
+                tooltip: '搜索',
+              ),
+              PopupMenuButton<LogLevel>(
+                icon: const Icon(Icons.filter_list),
+                onSelected: (level) {
+                  setState(() => _filterLevel = level);
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(value: LogLevel.all, child: Text('全部')),
+                  const PopupMenuItem(value: LogLevel.info, child: Text('Info')),
+                  const PopupMenuItem(
+                      value: LogLevel.warning, child: Text('Warning')),
+                  const PopupMenuItem(value: LogLevel.error, child: Text('Error')),
+                ],
+              ),
+              IconButton(
+                onPressed: () {
+                  proxyService.clearLogs();
+                },
+                icon: const Icon(Icons.delete_sweep),
+                tooltip: '清空日志',
+              ),
+              IconButton(
+                onPressed: () {
+                  final logs = proxyService.logs.join('\n');
+                  Share.share(logs);
+                },
+                icon: const Icon(Icons.share),
+                tooltip: '导出日志',
+              ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _clearLogs,
-            tooltip: 'Clear logs',
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _exportLogs,
-            tooltip: 'Export logs',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Status bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Row(
-              children: [
-                Icon(
-                  proxyService.isRunning ? Icons.circle : Icons.circle_outlined,
-                  size: 12,
-                  color: proxyService.isRunning ? Colors.green : Colors.grey,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${_logs.length} entries',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const Spacer(),
-                if (!proxyService.isRunning)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
                   Text(
-                    'Proxy not running',
-                    style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                    '自动滚动',
+                    style: theme.textTheme.bodyMedium,
                   ),
-              ],
-            ),
-          ),
-          // Log list
-          Expanded(
-            child: _logs.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.subject_outlined, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No logs yet',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Start the proxy to see logs',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
+                  Switch(
+                    value: _autoScroll,
+                    onChanged: (v) => setState(() => _autoScroll = v),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${filteredLogs.length} 条日志',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
                     ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(8),
-                    itemCount: _logs.where((log) => log.level.index >= _filterLevel.index).length,
-                    itemBuilder: (ctx, i) {
-                      final filteredLogs = _logs.where((log) => log.level.index >= _filterLevel.index).toList();
-                      final log = filteredLogs[i];
-                      return _buildLogTile(log);
-                    },
                   ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () {
-          // Manual log test
-          _addLog(LogLevel.debug, 'Test log entry at ${DateTime.now()}');
-        },
-        child: const Icon(Icons.bug_report),
-      ),
-    );
-  }
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                if (index >= filteredLogs.length) return null;
 
-  Widget _buildLogTile(LogEntry log) {
-    Color levelColor;
-    IconData levelIcon;
+                final log = filteredLogs[index];
+                final isError = log.contains('[ERROR]');
+                final isWarning = log.contains('[WARN]');
 
-    switch (log.level) {
-      case LogLevel.debug:
-        levelColor = Colors.grey;
-        levelIcon = Icons.bug_report;
-        break;
-      case LogLevel.info:
-        levelColor = Colors.blue;
-        levelIcon = Icons.info;
-        break;
-      case LogLevel.warning:
-        levelColor = Colors.orange;
-        levelIcon = Icons.warning;
-        break;
-      case LogLevel.error:
-        levelColor = Colors.red;
-        levelIcon = Icons.error;
-        break;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(levelIcon, size: 16, color: levelColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  log.message,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-                Text(
-                  _formatTime(log.timestamp),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
-                ),
-              ],
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    isError
+                        ? Icons.error
+                        : isWarning
+                            ? Icons.warning
+                            : Icons.info,
+                    size: 16,
+                    color: isError
+                        ? Colors.red
+                        : isWarning
+                            ? Colors.orange
+                            : theme.colorScheme.outline,
+                  ),
+                  title: Text(
+                    log,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: isError
+                          ? Colors.red
+                          : isWarning
+                              ? Colors.orange
+                              : null,
+                    ),
+                  ),
+                );
+              },
+              childCount: filteredLogs.length,
             ),
           ),
         ],
       ),
     );
   }
-
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}.${time.millisecond.toString().padLeft(3, '0')}';
-  }
 }
 
-enum LogLevel { debug, info, warning, error }
-
-class LogEntry {
-  final LogLevel level;
-  final String message;
-  final DateTime timestamp;
-
-  LogEntry({
-    required this.level,
-    required this.message,
-    required this.timestamp,
-  });
-
-  @override
-  String toString() {
-    return '[${timestamp.toIso8601String()}] [${level.name.toUpperCase()}] $message';
-  }
-}
+enum LogLevel { all, info, warning, error }

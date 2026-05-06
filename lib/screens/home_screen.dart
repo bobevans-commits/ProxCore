@@ -1,13 +1,16 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/proxy_service.dart';
-import '../models/singbox_config.dart';
-import '../widgets/proxy_link_importer.dart';
-import 'log_screen.dart';
-import 'node_editor_screen.dart';
-import 'routing_editor_screen.dart';
 
-/// Main Home Screen with Dashboard, Nodes, Routing, DNS, and Settings tabs
+import '../models/config.dart';
+import '../services/kernel_manager.dart';
+import '../services/proxy_service.dart';
+import '../services/subscription_service.dart';
+import '../utils/app_utils.dart';
+import 'settings_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,252 +19,101 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
-
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const NodesScreen(),
-    const RoutingScreen(),
-    const DnsScreen(),
-    const SettingsScreen(),
-  ];
+  Timer? _trafficTimer;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.dns), label: 'Nodes'),
-          NavigationDestination(icon: Icon(Icons.route), label: 'Routing'),
-          NavigationDestination(icon: Icon(Icons.security), label: 'DNS'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
-      ),
-      appBar: AppBar(
-        title: const Text('ProxCore'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.subject),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LogScreen()),
-              );
-            },
-            tooltip: 'View Logs',
-          ),
-        ],
-      ),
-    );
+  void initState() {
+    super.initState();
+    _trafficTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
-}
 
-// ==================== Dashboard Screen ====================
-
-class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  @override
+  void dispose() {
+    _trafficTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final proxyService = context.watch<ProxyService>();
+    final subService = context.watch<SubscriptionService>();
+    final isRunning = proxyService.isRunning;
+    final activeNode = proxyService.activeNode;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status Card
-          _buildStatusCard(proxyService),
-          
-          const SizedBox(height: 16),
-          
-          // Traffic Stats
-          Row(
-            children: [
-              Expanded(child: _buildTrafficCard('Upload', proxyService.trafficUp, Icons.upload)),
-              const SizedBox(width: 12),
-              Expanded(child: _buildTrafficCard('Download', proxyService.trafficDown, Icons.download)),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Quick Actions
-          _buildQuickActions(context, proxyService),
-          
-          const SizedBox(height: 16),
-          
-          // Connection Info
-          Card(
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(title: const Text('仪表板')),
+          SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Connection Info', style: Theme.of(context).textTheme.titleMedium),
-                  const Divider(),
-                  _buildInfoRow('Status', proxyService.status.name.toUpperCase()),
-                  _buildInfoRow('Mode', proxyService.isTunEnabled ? 'TUN' : 'Proxy'),
-                  _buildInfoRow('Latency', '${proxyService.latency.toStringAsFixed(1)} ms'),
-                  _buildInfoRow('Selected', proxyService.selectedOutbound),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusCard(ProxyService service) {
-    final isRunning = service.isRunning;
-    final color = isRunning ? Colors.green : (service.status == ProxyStatus.error ? Colors.red : Colors.grey);
-    
-    return Card(
-      color: color.withOpacity(0.1),
-      child: InkWell(
-        onTap: () => isRunning ? service.stopProxy() : service.startProxy(),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isRunning ? 'Proxy Running' : 'Proxy Stopped',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                  _StatusHero(
+                    isRunning: isRunning,
+                    activeNode: activeNode,
+                    nodeCount: proxyService.nodes.length,
+                    uptime: proxyService.uptime,
+                    onToggle: () {
+                      if (isRunning) {
+                        proxyService.stop();
+                      } else if (activeNode != null) {
+                        proxyService.start(activeNode);
+                      } else if (proxyService.nodes.isNotEmpty) {
+                        proxyService.start(proxyService.nodes.first);
+                      }
+                    },
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    isRunning ? 'Tap to stop' : 'Tap to start',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatChip(
+                          icon: Icons.upload,
+                          label: '上传',
+                          value:
+                              '${AppUtils.formatBytes(proxyService.uploadSpeed)}/s',
+                          total: AppUtils.formatBytes(proxyService.uploadBytes),
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _StatChip(
+                          icon: Icons.download,
+                          label: '下载',
+                          value:
+                              '${AppUtils.formatBytes(proxyService.downloadSpeed)}/s',
+                          total: AppUtils.formatBytes(
+                            proxyService.downloadBytes,
+                          ),
+                          color: Theme.of(context).colorScheme.tertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: _LatencyChip(proxyService: proxyService)),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  if (isRunning) ...[
+                    _SpeedChart(proxyService: proxyService),
+                    const SizedBox(height: 8),
+                  ],
+                  _OverviewBar(
+                    nodeCount: proxyService.nodes.length,
+                    ruleCount: proxyService.routingRules.length,
+                    subCount: subService.subscriptions.length,
+                    kernelLabel: proxyService.config.kernelType.label,
+                  ),
+                  const SizedBox(height: 8),
+                  _QuickSettings(proxyService: proxyService),
+                  const SizedBox(height: 8),
+                  _ConnectionGrid(proxyService: proxyService),
                 ],
               ),
-              Icon(
-                isRunning ? Icons.power_settings_new : Icons.power_off,
-                size: 48,
-                color: color,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTrafficCard(String label, int bytes, IconData icon) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: Colors.blue),
-            const SizedBox(height: 8),
-            Text(_formatBytes(bytes), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context, ProxyService service) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Quick Actions', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => service.toggleTun(!service.isTunEnabled),
-                  icon: Icon(service.isTunEnabled ? Icons.check_circle : Icons.circle_outlined),
-                  label: Text(service.isTunEnabled ? 'TUN On' : 'TUN Off'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final result = await service.testLatency();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Latency test completed: ${result.length} nodes')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.speed),
-                  label: const Text('Test Latency'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _showImportDialog(context, service),
-                  icon: const Icon(Icons.file_upload),
-                  label: const Text('Import Config'),
-                ),
-              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-
-  void _showImportDialog(BuildContext context, ProxyService service) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Import Configuration'),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          decoration: const InputDecoration(hintText: 'Paste JSON config here'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              service.importConfig(controller.text);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Config imported')));
-            },
-            child: const Text('Import'),
           ),
         ],
       ),
@@ -269,112 +121,435 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-// ==================== Nodes Screen ====================
+class _UptimeText extends StatefulWidget {
+  final Duration uptime;
 
-class NodesScreen extends StatelessWidget {
-  const NodesScreen({super.key});
+  const _UptimeText({required this.uptime});
+
+  @override
+  State<_UptimeText> createState() => _UptimeTextState();
+}
+
+class _UptimeTextState extends State<_UptimeText> {
+  late Duration _uptime;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _uptime = widget.uptime;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _uptime = _uptime + const Duration(seconds: 1);
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _UptimeText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _uptime = widget.uptime;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final h = d.inHours.toString().padLeft(2, '0');
+    final m = (d.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final service = context.watch<ProxyService>();
-    final outbounds = service.currentConfig?.outbounds ?? [];
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Proxy Nodes')),
-      body: ListView.builder(
-        itemCount: outbounds.length,
-        itemBuilder: (ctx, i) {
-          final outbound = outbounds[i];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: ListTile(
-              leading: _getProtocolIcon(outbound.type),
-              title: Text(outbound.tag),
-              subtitle: Text('${outbound.type}${outbound.server != null ? ' - ${outbound.server}' : ''}'),
-              trailing: outbound.type == 'selector' || outbound.type == 'urltest' 
-                  ? const Icon(Icons.group)
-                  : IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => service.removeOutbound(outbound.tag),
-                    ),
-              onTap: () => _showNodeDetails(context, outbound),
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddNodeDialog(context, service),
-        child: const Icon(Icons.add),
+    final theme = Theme.of(context);
+    return Text(
+      '运行时长 ${_formatDuration(_uptime)}',
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: Colors.green,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
+}
 
-  Widget _getProtocolIcon(String type) {
-    switch (type) {
-      case 'vmess': return const Icon(Icons.flash_on, color: Colors.orange);
-      case 'vless': return const Icon(Icons.bolt, color: Colors.amber);
-      case 'trojan': return const Icon(Icons.shield, color: Colors.purple);
-      case 'shadowsocks': return const Icon(Icons.lock, color: Colors.blue);
-      case 'hysteria': 
-      case 'hysteria2': return const Icon(Icons.rocket, color: Colors.red);
-      case 'tuic': return const Icon(Icons.speed, color: Colors.teal);
-      case 'wireguard': return const Icon(Icons.vpn_key, color: Colors.green);
-      default: return const Icon(Icons.public);
-    }
+class _StatusHero extends StatelessWidget {
+  final bool isRunning;
+  final NodeConfig? activeNode;
+  final int nodeCount;
+  final Duration? uptime;
+  final VoidCallback onToggle;
+
+  const _StatusHero({
+    required this.isRunning,
+    this.activeNode,
+    required this.nodeCount,
+    this.uptime,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final bgColor = isRunning
+        ? Colors.green.withValues(alpha: 0.08)
+        : colorScheme.surfaceContainerLow;
+
+    return Card(
+      color: bgColor,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isRunning
+                    ? Colors.green.withValues(alpha: 0.15)
+                    : colorScheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isRunning ? Icons.power_settings_new : Icons.power_off,
+                color: isRunning ? Colors.green : colorScheme.outline,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isRunning ? '代理运行中' : '代理未运行',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (activeNode != null)
+                    Text(
+                      '${AppUtils.protocolIcon(activeNode!.protocol)} ${activeNode!.name}  ${activeNode!.address}:${activeNode!.port}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (isRunning && uptime != null)
+                    _UptimeText(uptime: uptime!),
+                  if (activeNode == null && !isRunning)
+                    Text(
+                      nodeCount > 0
+                          ? '点击启动连接 $nodeCount 个节点'
+                          : '添加节点开始使用',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: onToggle,
+              style: FilledButton.styleFrom(
+                backgroundColor: isRunning ? Colors.red : Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                minimumSize: const Size(0, 36),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(isRunning ? Icons.stop : Icons.play_arrow, size: 18),
+                  const SizedBox(width: 4),
+                  Text(isRunning ? '停止' : '启动'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
 
-  void _showNodeDetails(BuildContext context, Outbound node) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
+class _OverviewBar extends StatelessWidget {
+  final int nodeCount;
+  final int ruleCount;
+  final int subCount;
+  final String kernelLabel;
+
+  const _OverviewBar({
+    required this.nodeCount,
+    required this.ruleCount,
+    required this.subCount,
+    required this.kernelLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            _OverviewChip(
+              icon: Icons.dns,
+              label: '节点',
+              value: '$nodeCount',
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            _OverviewChip(
+              icon: Icons.route,
+              label: '规则',
+              value: '$ruleCount',
+              color: theme.colorScheme.tertiary,
+            ),
+            const SizedBox(width: 12),
+            _OverviewChip(
+              icon: Icons.rss_feed,
+              label: '订阅',
+              value: '$subCount',
+              color: theme.colorScheme.secondary,
+            ),
+            const SizedBox(width: 12),
+            _OverviewChip(
+              icon: Icons.memory,
+              label: '内核',
+              value: kernelLabel,
+              color: theme.colorScheme.outline,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _OverviewChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.outline,
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String total;
+  final Color color;
+
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(node.tag, style: Theme.of(context).textTheme.titleLarge),
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => NodeEditorScreen(existingNode: node),
-                      ),
-                    );
-                  },
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            _buildDetailRow('Type', node.type),
-            if (node.server != null) _buildDetailRow('Server', '${node.server}:${node.serverPort}'),
-            if (node.uuid != null) _buildDetailRow('UUID', node.uuid!),
-            if (node.password != null) _buildDetailRow('Password', '••••••••'),
-            if (node.tls != null) _buildDetailRow('TLS', node.tls!.enabled ? 'Enabled' : 'Disabled'),
-            if (node.tls?.serverName != null) _buildDetailRow('SNI', node.tls!.serverName!),
-            if (node.transport != null) _buildDetailRow('Transport', node.transport!.type),
-            if (node.reality != null) _buildDetailRow('Reality', 'Enabled'),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => NodeEditorScreen(existingNode: node),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              total,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.outline,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LatencyChip extends StatelessWidget {
+  final ProxyService proxyService;
+
+  const _LatencyChip({required this.proxyService});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final latency = proxyService.latencyMs;
+    final activeNode = proxyService.activeNode;
+
+    Color latencyColor;
+    String latencyText;
+    if (latency == null) {
+      latencyColor = theme.colorScheme.outline;
+      latencyText = '--';
+    } else if (latency == -1) {
+      latencyColor = Colors.red;
+      latencyText = '超时';
+    } else {
+      latencyColor = Color(AppUtils.latencyColor(latency));
+      latencyText = '$latency ms';
+    }
+
+    return Card(
+      elevation: 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: activeNode != null
+            ? () => proxyService.testLatency(activeNode)
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.speed, size: 14, color: latencyColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    '延迟',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.outline,
                     ),
-                  );
-                },
-                icon: const Icon(Icons.edit),
-                label: const Text('Edit Node'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                latencyText,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: latencyColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeedChart extends StatelessWidget {
+  final ProxyService proxyService;
+
+  const _SpeedChart({required this.proxyService});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final history = proxyService.speedHistory;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '实时网速',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.outline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                _legend(theme.colorScheme.primary, '上传'),
+                const SizedBox(width: 8),
+                _legend(theme.colorScheme.tertiary, '下载'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 80,
+              child: CustomPaint(
+                painter: _SpeedChartPainter(
+                  history: history,
+                  uploadColor: theme.colorScheme.primary,
+                  downloadColor: theme.colorScheme.tertiary,
+                  gridColor: theme.colorScheme.outline.withValues(alpha: 0.1),
+                ),
+                size: Size.infinite,
               ),
             ),
           ],
@@ -383,398 +558,541 @@ class NodesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
-
-  void _showAddNodeDialog(BuildContext context, ProxyService service) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: SingleChildScrollView(
-          child: ProxyLinkImporter(
-            onLinksParsed: (nodes) {
-              for (final node in nodes) {
-                final outbound = Outbound(
-                  type: node['type'],
-                  tag: node['tag'],
-                  server: node['server'],
-                  serverPort: node['serverPort'],
-                  uuid: node['uuid'],
-                  password: node['password'],
-                  flow: node['flow'],
-                  security: node['security'],
-                  tls: node['tls'] != null ? TlsConfig.fromJson(node['tls']) : null,
-                  reality: node['reality'] != null ? RealityConfig.fromJson(node['reality']) : null,
-                  transport: node['transport'] != null ? TransportConfig.fromJson(node['transport']) : null,
-                  upMbps: node['upMbps'],
-                  downMbps: node['downMbps'],
-                  obfsPassword: node['obfsPassword'],
-                  congestionControl: node['congestionControl'],
-                );
-                service.addOutbound(outbound);
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Imported ${nodes.length} node(s)')),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ==================== Routing Screen ====================
-
-class RoutingScreen extends StatelessWidget {
-  const RoutingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final service = context.watch<ProxyService>();
-    final rules = service.currentConfig?.route.rules ?? [];
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Routing Rules'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rule),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const RoutingEditorScreen()),
-            ),
-            tooltip: 'Add Rule',
-          ),
-        ],
-      ),
-      body: rules.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.route_outlined, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text('No routing rules', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text('Add rules to control traffic routing', style: TextStyle(color: Colors.grey[600])),
-                ],
-              ),
-            )
-          : ListView.builder(
-              itemCount: rules.length,
-              itemBuilder: (ctx, i) {
-                final rule = rules[i];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    leading: _getRuleIcon(rule),
-                    title: Text(_getRuleDescription(rule)),
-                    subtitle: Text('→ ${rule.outbound}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Chip(
-                          label: Text(rule.protocol ?? rule.ipCidr != null ? 'IP' : rule.domainSuffix != null ? 'Domain' : 'All'),
-                          padding: EdgeInsets.zero,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => RoutingEditorScreen(existingRule: rule)),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          onPressed: () => _deleteRule(context, service, i),
-                        ),
-                      ],
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => RoutingEditorScreen(existingRule: rule)),
-                    ),
-                  ),
-                );
-              },
-            ),
-    );
-  }
-
-  Widget _getRuleIcon(RuleConfig rule) {
-    if (rule.protocol != null) return const Icon(Icons.settings_ethernet, color: Colors.blue);
-    if (rule.ipCidr != null) return const Icon(Icons.ip, color: Colors.green);
-    if (rule.domainSuffix != null) return const Icon(Icons.link, color: Colors.orange);
-    if (rule.domain != null) return const Icon(Icons.dns, color: Colors.purple);
-    return const Icon(Icons.rule, color: Colors.grey);
-  }
-
-  String _getRuleDescription(RuleConfig rule) {
-    if (rule.protocol != null) return 'Protocol: ${rule.protocol}';
-    if (rule.ipCidr != null) return 'IP: ${rule.ipCidr!.join(', ')}';
-    if (rule.domainSuffix != null) return 'Domain Suffix: ${rule.domainSuffix!.join(', ')}';
-    if (rule.domain != null) return 'Domain: ${rule.domain!.join(', ')}';
-    return 'Custom Rule';
-  }
-
-  void _deleteRule(BuildContext context, ProxyService service, int index) {
-    final currentRules = List<RuleConfig>.from(service.currentConfig?.route.rules ?? []);
-    if (index >= 0 && index < currentRules.length) {
-      currentRules.removeAt(index);
-      service.updateRoutingRules(currentRules);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rule deleted')));
-    }
-  }
-}
-
-// ==================== DNS Screen ====================
-
-class DnsScreen extends StatelessWidget {
-  const DnsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final service = context.watch<ProxyService>();
-    final dnsConfig = service.currentConfig?.dns;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('DNS Configuration')),
-      body: dnsConfig == null
-          ? const Center(child: Text('No DNS config'))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('DNS Servers', style: Theme.of(context).textTheme.titleMedium),
-                        const Divider(),
-                        ...dnsConfig.servers.map((s) => ListTile(
-                          leading: const Icon(Icons.dns),
-                          title: Text(s.tag),
-                          subtitle: Text(s.address),
-                        )),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('DNS Rules', style: Theme.of(context).textTheme.titleMedium),
-                        const Divider(),
-                        ...dnsConfig.rules.map((r) => ListTile(
-                          leading: const Icon(Icons.rule),
-                          title: Text('Server: ${r.server}'),
-                          subtitle: Text(r.domainSuffix?.join(', ') ?? r.ipCidr?.join(', ') ?? 'All'),
-                        )),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-}
-
-// ==================== Settings Screen ====================
-
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final service = context.watch<ProxyService>();
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _legend(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Card(
-          child: Column(
-            children: [
-              SwitchListTile(
-                title: const Text('TUN Mode'),
-                subtitle: const Text('Intercept all system traffic'),
-                value: service.isTunEnabled,
-                onChanged: (v) => service.toggleTun(v),
-              ),
-              const Divider(),
-              SwitchListTile(
-                title: const Text('Auto Start'),
-                subtitle: const Text('Start proxy on app launch'),
-                value: false,
-                onChanged: (v) {},
-              ),
-              const Divider(),
-              SwitchListTile(
-                title: const Text('Start on Boot'),
-                subtitle: const Text('Launch app when system starts'),
-                value: false,
-                onChanged: (v) {},
-              ),
-            ],
+        Container(
+          width: 8,
+          height: 3,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.content_copy),
-                title: const Text('Export Config'),
-                onTap: () {
-                  final json = service.exportConfig();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Config exported (${json.length} bytes)')),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.subject),
-                title: const Text('View Logs'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LogScreen()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.info),
-                title: const Text('About'),
-                onTap: () => showAboutDialog(context),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.code),
-                title: const Text('Developer Options'),
-                subtitle: const Text('Debug and testing tools'),
-                onTap: () => _showDeveloperOptions(context, service),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 10, color: color)),
       ],
     );
   }
+}
 
-  void showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ProxCore'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Version 1.0.0', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('A multi-kernel proxy client supporting:'),
-            SizedBox(height: 4),
-            Text('• sing-box'),
-            Text('• mihomo (Clash)'),
-            Text('• v2ray-core'),
-            SizedBox(height: 16),
-            Text('Built with Flutter', style: TextStyle(fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
+class _SpeedChartPainter extends CustomPainter {
+  final List history;
+  final Color uploadColor;
+  final Color downloadColor;
+  final Color gridColor;
+
+  const _SpeedChartPainter({
+    required this.history,
+    required this.uploadColor,
+    required this.downloadColor,
+    required this.gridColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (history.isEmpty) return;
+
+    final gridPaint = Paint()..color = gridColor;
+    for (var i = 1; i < 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    int maxVal = 0;
+    for (final r in history) {
+      maxVal = max(maxVal, r.upload as int);
+      maxVal = max(maxVal, r.download as int);
+    }
+    if (maxVal == 0) maxVal = 1;
+
+    _drawLine(
+      canvas,
+      size,
+      history.map((r) => r.upload as int).toList(),
+      uploadColor,
+      maxVal,
+    );
+    _drawLine(
+      canvas,
+      size,
+      history.map((r) => r.download as int).toList(),
+      downloadColor,
+      maxVal,
     );
   }
 
-  void _showDeveloperOptions(BuildContext context, ProxyService service) {
-    showDialog(
+  void _drawLine(
+    Canvas canvas,
+    Size size,
+    List<int> values,
+    Color color,
+    int maxVal,
+  ) {
+    if (values.length < 2) return;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: 0.1)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final fillPath = Path();
+
+    final stepX = size.width / (values.length - 1);
+
+    for (var i = 0; i < values.length; i++) {
+      final x = i * stepX;
+      final y = size.height - (values[i] / maxVal) * size.height;
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+
+    fillPath.lineTo(size.width, size.height);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpeedChartPainter oldDelegate) => true;
+}
+
+class _QuickSettings extends StatelessWidget {
+  final ProxyService proxyService;
+
+  const _QuickSettings({required this.proxyService});
+
+  Future<void> _onTunToggle(BuildContext context, bool enable) async {
+    if (!enable) {
+      proxyService.toggleTun(false);
+      return;
+    }
+
+    if (proxyService.isKernelInstalled()) {
+      proxyService.toggleTun(true);
+      return;
+    }
+
+    final kernelType = proxyService.activeKernelType;
+    final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Developer Options'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        icon: const Icon(Icons.vpn_lock, size: 32),
+        title: const Text('需要安装内核'),
+        content: Text(
+          'TUN 模式需要 ${kernelType.label} 内核支持。当前未检测到已安装的内核，是否前往安装？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'install'),
+            child: const Text('前往安装'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'install' && context.mounted) {
+      final kernelManager = proxyService.kernelManager;
+      final installed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _KernelInstallScreen(
+            kernelType: kernelType,
+            kernelManager: kernelManager,
+          ),
+        ),
+      );
+
+      if (installed == true && context.mounted) {
+        proxyService.toggleTun(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('TUN 模式已开启'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final config = proxyService.config;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: const Icon(Icons.bug_report),
-              title: const Text('Test Latency'),
-              subtitle: const Text('Test all nodes latency'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final result = await service.testLatency();
-                if (ctx.mounted) {
-                  showDialog(
-                    context: ctx,
-                    builder: (dCtx) => AlertDialog(
-                      title: const Text('Latency Test Results'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: result.entries.map((e) => 
-                          ListTile(
-                            title: Text(e.key),
-                            trailing: Text('${e.value.toStringAsFixed(1)} ms'),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 4),
+              child: Row(
+                children: [
+                  Text(
+                    '快捷设置',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '更多设置',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
                           ),
-                        ).toList(),
-                      ),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Close')),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
                       ],
                     ),
-                  );
-                }
-              },
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.refresh),
-              title: const Text('Reload Config'),
-              subtitle: const Text('Reload without restart'),
-              onTap: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Configuration reloaded')),
-                );
-              },
+            SwitchListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.only(left: 4),
+              secondary: Icon(
+                Icons.vpn_lock,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text('TUN 模式', style: theme.textTheme.bodySmall),
+              subtitle: Text(
+                '虚拟网卡全局代理',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontSize: 10,
+                ),
+              ),
+              value: config.tunEnabled,
+              onChanged: (v) => _onTunToggle(context, v),
+            ),
+            const Divider(height: 1, indent: 32),
+            SwitchListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.only(left: 4),
+              secondary: Icon(
+                Icons.settings_ethernet,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text('系统代理', style: theme.textTheme.bodySmall),
+              subtitle: Text(
+                '设置系统 HTTP/SOCKS 代理',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontSize: 10,
+                ),
+              ),
+              value: config.systemProxy,
+              onChanged: (v) => proxyService.setSystemProxy(v),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
+      ),
+    );
+  }
+}
+
+class _ConnectionGrid extends StatelessWidget {
+  final ProxyService proxyService;
+
+  const _ConnectionGrid({required this.proxyService});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final config = proxyService.config;
+    final isRunning = proxyService.isRunning;
+
+    final items = [
+      _ConnItem(Icons.swap_vert, 'SOCKS', '${config.socksPort}'),
+      _ConnItem(Icons.http, 'HTTP', '${config.httpPort}'),
+      _ConnItem(
+        Icons.lan,
+        '监听',
+        config.lanSharing ? '0.0.0.0' : config.localAddress,
+      ),
+      _ConnItem(Icons.memory, '内核', config.kernelType.label),
+      _ConnItem(
+        Icons.vpn_lock,
+        'TUN',
+        config.tunEnabled ? '开启' : '关闭',
+        valueColor: config.tunEnabled ? Colors.green : null,
+      ),
+      _ConnItem(Icons.dns, 'DNS', config.dnsConfig.mode.label),
+    ];
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 6),
+              child: Row(
+                children: [
+                  Text(
+                    '连接信息',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isRunning
+                          ? Colors.green
+                          : theme.colorScheme.outline,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isRunning ? '已连接' : '未连接',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isRunning
+                          ? Colors.green
+                          : theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 2.2,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              children: items.map((item) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            item.icon,
+                            size: 12,
+                            color: theme.colorScheme.outline,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        item.value,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: item.valueColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnItem {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  const _ConnItem(this.icon, this.label, this.value, {this.valueColor});
+}
+
+class _KernelInstallScreen extends StatefulWidget {
+  final KernelType kernelType;
+  final KernelManager kernelManager;
+
+  const _KernelInstallScreen({
+    required this.kernelType,
+    required this.kernelManager,
+  });
+
+  @override
+  State<_KernelInstallScreen> createState() => _KernelInstallScreenState();
+}
+
+class _KernelInstallScreenState extends State<_KernelInstallScreen> {
+  bool _downloading = false;
+  double? _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDownload();
+  }
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _downloading = true;
+      _progress = null;
+    });
+
+    widget.kernelManager.addListener(_onManagerUpdate);
+
+    try {
+      await widget.kernelManager.downloadKernel(widget.kernelType);
+      if (mounted) {
+        widget.kernelManager.removeListener(_onManagerUpdate);
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        widget.kernelManager.removeListener(_onManagerUpdate);
+        setState(() => _downloading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('下载失败: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _onManagerUpdate() {
+    if (mounted) {
+      setState(() {
+        _progress = widget.kernelManager.downloadProgress;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.kernelManager.removeListener(_onManagerUpdate);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: Text('安装 ${widget.kernelType.label}')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.download,
+                size: 64,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _downloading ? '正在下载 ${widget.kernelType.label} 内核...' : '准备下载...',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              if (_downloading) ...[
+                SizedBox(
+                  width: 280,
+                  child: LinearProgressIndicator(value: _progress),
+                ),
+                const SizedBox(height: 8),
+                if (_progress != null)
+                  Text(
+                    '${(_progress! * 100).toStringAsFixed(1)}%',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 24),
+              Text(
+                '下载完成后将自动返回并开启 TUN 模式',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (!_downloading)
+                FilledButton.icon(
+                  onPressed: _startDownload,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重试'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

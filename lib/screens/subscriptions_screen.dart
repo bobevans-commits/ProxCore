@@ -1,383 +1,461 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/subscription_service.dart';
-import '../services/proxy_service.dart';
+import 'package:uuid/uuid.dart';
 
-/// Subscription management screen
-class SubscriptionsScreen extends StatelessWidget {
+import '../services/config_storage_service.dart';
+import '../services/proxy_service.dart';
+import '../services/subscription_service.dart';
+import '../utils/app_utils.dart';
+
+class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => SubscriptionService(),
-      child: const _SubscriptionsContent(),
-    );
-  }
+  State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
 }
 
-class _SubscriptionsContent extends StatelessWidget {
-  const _SubscriptionsContent();
-
+class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   @override
   Widget build(BuildContext context) {
-    final subscriptionService = context.watch<SubscriptionService>();
+    final subService = context.watch<SubscriptionService>();
     final proxyService = context.watch<ProxyService>();
+    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Subscriptions'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: subscriptionService.isUpdating
-                ? null
-                : () => subscriptionService.updateAllSubscriptions(),
-            tooltip: 'Update All',
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            title: const Text('订阅管理'),
           ),
-        ],
-      ),
-      body: subscriptionService.subscriptions.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.cloud_off_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No subscriptions yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Add a subscription URL to get started',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: () => subscriptionService.updateAllSubscriptions(),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: subscriptionService.subscriptions.length,
-                itemBuilder: (ctx, i) {
-                  final sub = subscriptionService.subscriptions[i];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: sub.autoUpdate ? Colors.green[100] : Colors.grey[200],
-                        child: Icon(
-                          Icons.cloud,
-                          color: sub.autoUpdate ? Colors.green : Colors.grey,
-                        ),
-                      ),
-                      title: Text(sub.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text(
-                            sub.url,
-                            style: const TextStyle(fontSize: 12),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Chip(
-                                label: Text('${sub.nodeCount} nodes'),
-                                padding: EdgeInsets.zero,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              if (sub.lastUpdated != null) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Updated: ${_formatLastUpdated(sub.lastUpdated!)}',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                                ),
-                              ],
-                              if (sub.autoUpdate) ...[
-                                const SizedBox(width: 8),
-                                Icon(Icons.autorenew, size: 14, color: Colors.green[700]),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) => _handleMenuAction(context, subscriptionService, proxyService, sub, value),
-                        itemBuilder: (ctx) => [
-                          const PopupMenuItem(value: 'update', child: ListTile(leading: Icon(Icons.refresh), title: Text('Update'))),
-                          const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text('Edit'))),
-                          const PopupMenuItem(value: 'toggle_auto', child: ListTile(leading: Icon(Icons.autorenew), title: Text('Toggle Auto-update'))),
-                          const PopupMenuItem(value: 'import', child: ListTile(leading: Icon(Icons.download), title: Text('Import Nodes'))),
-                          const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete, color: Colors.red), title: Text('Delete', style: TextStyle(color: Colors.red)))),
-                        ],
-                      ),
-                      isThreeLine: true,
+          if (subService.isLoading)
+            const SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          if (subService.error != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  color: theme.colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      subService.error!,
+                      style: TextStyle(color: theme.colorScheme.onErrorContainer),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: _SubscriptionSummary(
+                subCount: subService.subscriptions.length,
+                nodeCount: proxyService.nodes.length,
+              ),
+            ),
+          ),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final sub = subService.subscriptions[index];
+                return _SubscriptionTile(
+                  subscription: sub,
+                  onRefresh: () async {
+                    final nodes = await subService.refreshSubscription(sub.id);
+                    if (nodes.isNotEmpty && context.mounted) {
+                      proxyService.addNodes(nodes);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已导入 ${nodes.length} 个节点'),
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  onEdit: () => _showEditDialog(context, sub),
+                  onDelete: () => _confirmDelete(context, sub),
+                );
+              },
+              childCount: subService.subscriptions.length,
+            ),
+          ),
+          if (subService.subscriptions.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.rss_feed,
+                      size: 64,
+                      color: theme.colorScheme.outline,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '暂无订阅',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '点击 + 添加订阅链接',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddSubscriptionDialog(context, subscriptionService),
+        onPressed: () => _showAddDialog(context),
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _handleMenuAction(
-    BuildContext context,
-    SubscriptionService subscriptionService,
-    ProxyService proxyService,
-    Subscription sub,
-    String action,
-  ) async {
-    switch (action) {
-      case 'update':
-        await subscriptionService.updateSubscription(sub.id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Updated ${sub.name}')),
-          );
-        }
-        break;
-      case 'edit':
-        _showEditSubscriptionDialog(context, subscriptionService, sub);
-        break;
-      case 'toggle_auto':
-        subscriptionService.updateSubscriptionInfo(sub.id, autoUpdate: !sub.autoUpdate);
-        break;
-      case 'import':
-        await _importSubscriptionNodes(context, subscriptionService, proxyService, sub);
-        break;
-      case 'delete':
-        _showDeleteConfirmation(context, subscriptionService, sub);
-        break;
-    }
-  }
+  void _showAddDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final urlController = TextEditingController();
 
-  Future<void> _importSubscriptionNodes(
-    BuildContext context,
-    SubscriptionService subscriptionService,
-    ProxyService proxyService,
-    Subscription sub,
-  ) async {
-    try {
-      // In a real app, we would fetch and parse the subscription here
-      // For now, we'll just show a message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Importing nodes from subscription...')),
-      );
-      
-      // Simulate import
-      await Future.delayed(const Duration(seconds: 1));
-      
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported ${sub.nodeCount} nodes from ${sub.name}')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to import: $e')),
-        );
-      }
-    }
-  }
-
-  void _showDeleteConfirmation(
-    BuildContext context,
-    SubscriptionService subscriptionService,
-    Subscription sub,
-  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Subscription'),
-        content: Text('Are you sure you want to delete "${sub.name}"?'),
+        title: const Text('添加订阅'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: '名称',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: '订阅链接',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              subscriptionService.removeSubscription(sub.id);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(content: Text('Deleted ${sub.name}')),
-              );
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (urlController.text.trim().isNotEmpty) {
+                final sub = SubscriptionInfo(
+                  id: const Uuid().v4(),
+                  name: nameController.text.trim().isEmpty
+                      ? '订阅 ${DateTime.now().minute}'
+                      : nameController.text.trim(),
+                  url: urlController.text.trim(),
+                );
+                final subService = context.read<SubscriptionService>();
+                final proxyService = context.read<ProxyService>();
+                await subService.addSubscription(sub);
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                final nodes = await subService.refreshSubscription(sub.id);
+                if (nodes.isNotEmpty) {
+                  proxyService.addNodes(nodes);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('已导入 ${nodes.length} 个节点'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('添加并导入'),
           ),
         ],
       ),
     );
   }
 
-  void _showAddSubscriptionDialog(BuildContext context, SubscriptionService service) {
-    final nameController = TextEditingController();
-    final urlController = TextEditingController();
-    bool autoUpdate = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Add Subscription'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'My Subscription',
-                    prefixIcon: Icon(Icons.label),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: urlController,
-                  decoration: const InputDecoration(
-                    labelText: 'Subscription URL',
-                    hintText: 'https://example.com/sub',
-                    prefixIcon: Icon(Icons.link),
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Auto Update'),
-                  subtitle: const Text('Automatically update this subscription'),
-                  value: autoUpdate,
-                  onChanged: (v) => setDialogState(() => autoUpdate = v),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty || urlController.text.isEmpty) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Please fill in all fields')),
-                  );
-                  return;
-                }
-
-                try {
-                  await service.addSubscription(
-                    name: nameController.text,
-                    url: urlController.text,
-                    autoUpdate: autoUpdate,
-                  );
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Added ${nameController.text}')),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditSubscriptionDialog(
-    BuildContext context,
-    SubscriptionService service,
-    Subscription sub,
-  ) {
+  void _showEditDialog(BuildContext context, SubscriptionInfo sub) {
     final nameController = TextEditingController(text: sub.name);
     final urlController = TextEditingController(text: sub.url);
-    bool autoUpdate = sub.autoUpdate;
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Edit Subscription'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    prefixIcon: Icon(Icons.label),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: urlController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL',
-                    prefixIcon: Icon(Icons.link),
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Auto Update'),
-                  value: autoUpdate,
-                  onChanged: (v) => setDialogState(() => autoUpdate = v),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('编辑订阅'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: '名称',
+                border: OutlineInputBorder(),
+              ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: '订阅链接',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () {
-                service.updateSubscriptionInfo(
-                  sub.id,
-                  name: nameController.text,
-                  url: urlController.text,
-                  autoUpdate: autoUpdate,
-                );
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Subscription updated')),
-                );
+          FilledButton(
+            onPressed: () {
+              final updated = sub.copyWith(
+                name: nameController.text.trim(),
+                url: urlController.text.trim(),
+              );
+              context.read<SubscriptionService>().updateSubscription(updated);
+              Navigator.pop(ctx);
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, SubscriptionInfo sub) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除订阅'),
+        content: Text('确定要删除 "${sub.name}" 吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              context.read<SubscriptionService>().removeSubscription(sub.id);
+              Navigator.pop(ctx);
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubscriptionSummary extends StatelessWidget {
+  final int subCount;
+  final int nodeCount;
+
+  const _SubscriptionSummary({
+    required this.subCount,
+    required this.nodeCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            _SummaryChip(
+              icon: Icons.rss_feed,
+              label: '订阅',
+              value: '$subCount',
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 16),
+            _SummaryChip(
+              icon: Icons.dns,
+              label: '节点',
+              value: '$nodeCount',
+              color: theme.colorScheme.tertiary,
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () async {
+                final subService = context.read<SubscriptionService>();
+                final proxyService = context.read<ProxyService>();
+                final nodes = await subService.refreshAll();
+                if (nodes.isNotEmpty) {
+                  proxyService.addNodes(nodes);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('已导入 ${nodes.length} 个节点'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
               },
-              child: const Text('Save'),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('全部刷新'),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  static String _formatLastUpdated(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+class _SummaryChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
 
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    
-    return '${date.day}/${date.month}/${date.year}';
+  const _SummaryChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubscriptionTile extends StatelessWidget {
+  final SubscriptionInfo subscription;
+  final VoidCallback onRefresh;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _SubscriptionTile({
+    required this.subscription,
+    required this.onRefresh,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    subscription.name,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                PopupMenuButton(
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: 'refresh', child: Text('刷新')),
+                    const PopupMenuItem(value: 'edit', child: Text('编辑')),
+                    const PopupMenuItem(value: 'delete', child: Text('删除')),
+                  ],
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'refresh':
+                        onRefresh();
+                      case 'edit':
+                        onEdit();
+                      case 'delete':
+                        onDelete();
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subscription.url,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (subscription.lastUpdated != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                '上次更新: ${AppUtils.formatTimestamp(subscription.lastUpdated!)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '更新间隔: ${subscription.updateIntervalMinutes} 分钟',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const Spacer(),
+                FilledButton.tonalIcon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('刷新导入'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
