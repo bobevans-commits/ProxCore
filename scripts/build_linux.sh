@@ -4,7 +4,7 @@
 
 set -e
 
-APP_NAME="ProxyClient"
+APP_NAME="ProxCore"
 FLUTTER_UI_DIR="flutter_ui"
 RUST_CORE_DIR="rust_core"
 VERSION="${1:-dev}"
@@ -79,7 +79,7 @@ cp -r "$DIST_DIR/"* "$APPDIR/usr/bin/"
 cat > "$APPDIR/$APP_NAME.desktop" << EOF
 [Desktop Entry]
 Name=$APP_NAME
-Comment=Proxy Client with TUN support
+Comment=ProxCore - Multi-kernel proxy client
 Exec=$APP_NAME
 Icon=$APP_NAME
 Type=Application
@@ -105,7 +105,7 @@ SELF=$(readlink -f "$0")
 HERE=${SELF%/*}
 export PATH="$HERE/usr/bin:$PATH"
 export LD_LIBRARY_PATH="$HERE/usr/lib:$HERE/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
-exec "$HERE/usr/bin/proxy_client" "$@"
+exec "$HERE/usr/bin/proxcore" "$@"
 EOF
 chmod +x "$APPDIR/AppRun"
 
@@ -141,8 +141,8 @@ Section: net
 Priority: optional
 Architecture: amd64
 Depends: libgtk-3-0, liblzma5, libstdc++6
-Maintainer: Proxy Client Team
-Description: Proxy Client with TUN support
+Maintainer: ProxCore Team
+Description: ProxCore - Multi-kernel proxy client
  A modern proxy client supporting multiple protocols and cores.
 Features:
  - sing-box, mihomo, v2ray core support

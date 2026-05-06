@@ -9,14 +9,14 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Proxy Client - Windows Build Script" -ForegroundColor Cyan
+Write-Host "  ProxCore - Windows Build Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Configuration
 $RustCoreDir = "rust_core"
 $FlutterUiDir = "flutter_ui"
-$AppName = "ProxyClient"
+$AppName = "ProxCore"
 $OutputDir = "dist"
 $ArtifactName = "$AppName-windows-x64-$Version.zip"
 
@@ -56,10 +56,10 @@ try {
     Write-Host "  ✓ Rust core built successfully" -ForegroundColor Green
     
     # Verify output
-    if (Test-Path "target\release\proxy_client.dll") {
-        Write-Host "  ✓ Found proxy_client.dll" -ForegroundColor Green
+    if (Test-Path "target\release\proxcore.dll") {
+        Write-Host "  ✓ Found proxcore.dll" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠ proxy_client.dll not found (may be normal)" -ForegroundColor Yellow
+        Write-Host "  ⚠ proxcore.dll not found (may be normal)" -ForegroundColor Yellow
     }
 } catch {
     Write-Host "  ✗ Rust build failed: $_" -ForegroundColor Red
@@ -165,9 +165,9 @@ if (Test-Path "$FlutterUiDir\assets\bin\sing-box.exe") {
 }
 
 # Copy Rust core DLL
-if (Test-Path "$RustCoreDir\target\release\proxy_client.dll") {
-    Copy-Item "$RustCoreDir\target\release\proxy_client.dll" "$OutputDir\" -Force
-    Write-Host "  ✓ Copied proxy_client.dll" -ForegroundColor Green
+if (Test-Path "$RustCoreDir\target\release\proxcore.dll") {
+    Copy-Item "$RustCoreDir\target\release\proxcore.dll" "$OutputDir\" -Force
+    Write-Host "  ✓ Copied proxcore.dll" -ForegroundColor Green
 }
 
 # Create launcher script
@@ -175,12 +175,12 @@ Write-Host "  Creating start.bat..." -ForegroundColor Gray
 @"
 @echo off
 echo ========================================
-echo   Proxy Client for Windows
+echo   ProxCore for Windows
 echo ========================================
 echo.
-echo Starting Proxy Client...
+echo Starting ProxCore...
 echo.
-start "" "proxy_client.exe"
+start "" "proxcore.exe"
 echo Application started. You can close this window.
 timeout /t 2 >nul
 exit
@@ -190,7 +190,7 @@ exit
 Write-Host "  Creating README.txt..." -ForegroundColor Gray
 @"
 ================================================================================
-                        PROXY CLIENT FOR WINDOWS
+                        PROXCORE FOR WINDOWS
 ================================================================================
 
 VERSION: $Version
@@ -201,7 +201,7 @@ INSTALLATION
 --------------------------------------------------------------------------------
 
 1. Extract all files to a folder of your choice
-2. Run proxy_client.exe or start.bat
+2. Run proxcore.exe or start.bat
 3. (Optional) Create desktop shortcut
 
 --------------------------------------------------------------------------------
@@ -320,13 +320,13 @@ Section "Install"
   WriteUninstaller "`$INSTDIR\uninstall.exe"
   
   CreateDirectory "`$SMPROGRAMS\$AppName"
-  CreateShortcut "`$SMPROGRAMS\$AppName\$AppName.lnk" "`$INSTDIR\proxy_client.exe"
-  CreateShortcut "`$DESKTOP\$AppName.lnk" "`$INSTDIR\proxy_client.exe"
+  CreateShortcut "`$SMPROGRAMS\$AppName\$AppName.lnk" "`$INSTDIR\proxcore.exe"
+  CreateShortcut "`$DESKTOP\$AppName.lnk" "`$INSTDIR\proxcore.exe"
   
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$AppName" "DisplayName" "$AppName"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$AppName" "UninstallString" '"`$INSTDIR\uninstall.exe"'
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$AppName" "DisplayVersion" "$Version"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$AppName" "Publisher" "Proxy Client Team"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\$AppName" "Publisher" "ProxCore Team"
 SectionEnd
 
 Section "Uninstall"
@@ -386,7 +386,7 @@ Get-ChildItem $OutputDir | ForEach-Object {
 Write-Host ""
 Write-Host "To test the application:" -ForegroundColor Yellow
 Write-Host "  1. Extract $ArtifactName to a test folder" -ForegroundColor Gray
-Write-Host "  2. Run proxy_client.exe or start.bat" -ForegroundColor Gray
+Write-Host "  2. Run proxcore.exe or start.bat" -ForegroundColor Gray
 Write-Host "  3. Import your configuration and test" -ForegroundColor Gray
 
 Write-Host ""

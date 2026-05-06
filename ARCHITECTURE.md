@@ -1,4 +1,4 @@
-# Universal-Proxy-Party: Technical Architecture Document
+# ProxCore: Technical Architecture Document
 
 ## 1. Recommended Tech Stack
 
@@ -183,7 +183,7 @@ impl Serialize for KernelError {
 ## 3. Project Directory Structure
 
 ```
-universal-proxy-party/
+proxcore/
 ├── .github/                          # GitHub Actions workflows
 │   └── workflows/
 │       ├── ci.yml
@@ -385,9 +385,9 @@ impl BinaryManager {
             .ok_or(BinaryError::NoHomeDir)?;
         
         let base_path = match Platform::current() {
-            Platform::Windows => dirs.data_local_dir().join("universal-proxy-party"),
-            Platform::MacOS => dirs.home_dir().join("Library/Application Support/universal-proxy-party"),
-            Platform::Linux => dirs.config_dir().join("universal-proxy-party"),
+            Platform::Windows => dirs.data_local_dir().join("proxcore"),
+            Platform::MacOS => dirs.home_dir().join("Library/Application Support/proxcore"),
+            Platform::Linux => dirs.config_dir().join("proxcore"),
         };
         
         Ok(base_path.join("binaries"))

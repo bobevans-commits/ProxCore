@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       appBar: AppBar(
-        title: const Text('Proxy Client'),
+        title: const Text('ProxCore'),
         actions: [
           IconButton(
             icon: const Icon(Icons.subject),
@@ -699,7 +699,7 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Proxy Client'),
+        title: const Text('ProxCore'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

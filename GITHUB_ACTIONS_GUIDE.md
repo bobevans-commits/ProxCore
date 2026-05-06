@@ -2,7 +2,7 @@
 
 ## 📦 概述
 
-本项目配置了两套 GitHub Actions 工作流，用于自动化构建和发布多平台代理客户端应用。
+本项目配置了两套 GitHub Actions 工作流，用于自动化构建和发布 ProxCore 应用。
 
 ## 🔧 工作流文件
 
@@ -135,9 +135,9 @@ cargo build --release --target aarch64-apple-darwin
 
 # 创建 Universal Binary
 lipo -create \
-  target/x86_64-apple-darwin/release/libproxy_client.dylib \
-  target/aarch64-apple-darwin/release/libproxy_client.dylib \
-  -output target/universal/libproxy_client.dylib
+  target/x86_64-apple-darwin/release/libproxcore.dylib \
+  target/aarch64-apple-darwin/release/libproxcore.dylib \
+  -output target/universal/libproxcore.dylib
 
 cd ../flutter_ui
 flutter pub get
@@ -334,4 +334,4 @@ sudo apt install fuse
 ---
 
 **最后更新**: 2024-01-15
-**维护者**: Proxy Client Team
+**维护者**: ProxCore Team

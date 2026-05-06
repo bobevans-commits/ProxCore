@@ -22,7 +22,7 @@ class ProxyClientApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => KernelManager()),
       ],
       child: MaterialApp(
-        title: 'Proxy Client',
+        title: 'ProxCore',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

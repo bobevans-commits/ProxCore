@@ -217,4 +217,4 @@ bash scripts/download_kernels.sh ./flutter_ui/assets/bin
 ---
 
 **最后更新**: 2024 年 1 月  
-**维护者**: Proxy Client Team
+**维护者**: ProxCore Team

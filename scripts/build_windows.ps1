@@ -8,7 +8,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$APP_NAME = "ProxyClient"
+$APP_NAME = "ProxCore"
 $FLUTTER_UI_DIR = "flutter_ui"
 $RUST_CORE_DIR = "rust_core"
 $OUTPUT_DIR = "dist"
@@ -35,8 +35,8 @@ if (Test-Path "$RUST_CORE_DIR/Cargo.toml") {
     }
     
     # Copy to assets
-    Copy-Item "target/x86_64-pc-windows-msvc/release/proxy_client.dll" "../$BIN_DIR/" -ErrorAction SilentlyContinue
-    Copy-Item "target/x86_64-pc-windows-msvc/release/proxy_client.exe" "../$BIN_DIR/" -ErrorAction SilentlyContinue
+    Copy-Item "target/x86_64-pc-windows-msvc/release/proxcore.dll" "../$BIN_DIR/" -ErrorAction SilentlyContinue
+    Copy-Item "target/x86_64-pc-windows-msvc/release/proxcore.exe" "../$BIN_DIR/" -ErrorAction SilentlyContinue
     Set-Location ..
 }
 

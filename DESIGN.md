@@ -1,4 +1,4 @@
-# 多平台代理客户端设计方案
+# ProxCore 设计方案
 
 ## 技术栈选择
 
@@ -29,7 +29,7 @@
 ## 项目结构
 
 ```
-proxy_client/
+proxcore/
 ├── rust_core/          # Rust 核心库
 │   ├── src/
 │   │   ├── lib.rs      # 库入口

@@ -1,6 +1,6 @@
 # 快速开始指南 - Windows 本地构建与测试
 
-本指南帮助您在 Windows 上快速构建和测试 Proxy Client 应用。
+本指南帮助您在 Windows 上快速构建和测试 ProxCore 应用。
 
 ## 📋 前置要求
 
@@ -60,7 +60,7 @@ cargo build --release
 
 # 验证构建产物
 ls target\release\
-# 应该看到 proxy_client.dll 和/或 proxy_client.exe
+# 应该看到 proxcore.dll 和/或 proxcore.exe
 ```
 
 ### Step 3: 下载 sing-box 核心
@@ -109,7 +109,7 @@ xcopy /E /I /Y build\windows\x64\runner\Release\* dist\
 copy assets\bin\sing-box.exe dist\
 
 # 复制 Rust 核心 DLL
-copy ..\rust_core\target\release\proxy_client.dll dist\
+copy ..\rust_core\target\release\proxcore.dll dist\
 
 # 创建启动脚本
 @"
@@ -121,7 +121,7 @@ exit
 
 # 创建 README
 @"
-# Proxy Client for Windows
+# ProxCore for Windows
 
 ## 使用方法
 1. 运行 proxy_client.exe 或 start.bat
@@ -224,10 +224,10 @@ cargo build --release
 # 确保复制了所有必要的文件
 ls build\windows\x64\runner\Release\
 # 必须包含：
-# - proxy_client.exe
+# - proxcore.exe
 # - flutter_windows.dll
 # - icudtl.dat
-# - proxy_client.dll (Rust 核心)
+# - proxcore.dll (Rust 核心)
 ```
 
 ### 问题 4: sing-box 无法启动
@@ -251,10 +251,10 @@ ls assets\bin\sing-box.exe
 **解决**:
 ```powershell
 # 以管理员身份运行应用
-# 右键点击 proxy_client.exe → "以管理员身份运行"
+# 右键点击 proxcore.exe → "以管理员身份运行"
 
 # 或在 PowerShell 中
-Start-Process .\proxy_client.exe -Verb RunAs
+Start-Process .\proxcore.exe -Verb RunAs
 ```
 
 ## 📊 性能优化建议
@@ -288,7 +288,7 @@ Compress-Archive -Path dist\* -DestinationPath "ProxyClient-windows-x64-v1.0.0.z
 {
   "log": {
     "level": "info",
-    "output": "proxy_client.log",
+    "output": "proxcore.log",
     "timestamp": true
   },
   "inbounds": [

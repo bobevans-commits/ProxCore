@@ -1,4 +1,4 @@
-# 多平台代理客户端 - UI 与服务实现文档
+# ProxCore - UI 与服务实现文档
 
 ## 📋 功能概览
 
@@ -40,7 +40,7 @@
 ## 📁 项目结构
 
 ```
-proxy_client/
+proxcore/
 ├── flutter_ui/
 │   ├── lib/
 │   │   ├── main.dart                    # 应用入口
@@ -208,7 +208,7 @@ class ProxyService extends ChangeNotifier {
 ### 运行测试
 
 ```bash
-cd /workspace/proxy_client/flutter_ui
+cd /workspace/proxcore/flutter_ui
 
 # 运行所有测试
 flutter test

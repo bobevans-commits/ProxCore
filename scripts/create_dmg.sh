@@ -4,7 +4,7 @@
 
 set -e
 
-APP_NAME="ProxyClient"
+APP_NAME="ProxCore"
 FLUTTER_UI_DIR="flutter_ui"
 RUST_CORE_DIR="rust_core"
 VERSION="${1:-dev}"
@@ -33,9 +33,9 @@ if [ -f "$RUST_CORE_DIR/Cargo.toml" ]; then
     # Create universal binary
     mkdir -p target/universal
     lipo -create \
-        target/x86_64-apple-darwin/release/libproxy_client.dylib \
-        target/aarch64-apple-darwin/release/libproxy_client.dylib \
-        -output target/universal/libproxy_client.dylib
+        target/x86_64-apple-darwin/release/libproxcore.dylib \
+        target/aarch64-apple-darwin/release/libproxcore.dylib \
+        -output target/universal/libproxcore.dylib
     
     cd ..
 fi
