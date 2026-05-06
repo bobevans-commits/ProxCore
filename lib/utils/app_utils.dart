@@ -192,7 +192,9 @@ class AppUtils {
   /// 解析 VMess 协议 URI
   ///
   /// 格式：vmess://{Base64编码的JSON}
-  /// JSON 字段：ps(名称), add(地址), port(端口), id(UUID), aid(alterId), net(传输协议)
+  /// JSON 字段：ps(名称), add(地址), port(端口), id(UUID), aid(alterId),
+  ///   net(传输协议), type(伪装类型), host(WS主机), path(WS路径),
+  ///   tls(TLS), sni, alpn, scy(加密方式)
   static NodeConfig _parseVmess(String uri) {
     final encoded = uri.replaceFirst('vmess://', '');
     final decoded = utf8.decode(base64Decode(encoded));
@@ -206,10 +208,14 @@ class AppUtils {
       extra: {
         'uuid': json['id'],
         'alterId': json['aid'] ?? 0,
-        'security': json['scy'] ?? json['net'] ?? 'auto',
+        'security': json['scy'] ?? 'auto',
         'network': json['net'] ?? 'tcp',
         'wsPath': json['path'],
         'wsHost': json['host'],
+        'tls': json['tls'] == 'tls',
+        'sni': json['sni'],
+        'alpn': json['alpn'],
+        'fingerprint': json['fp'],
       },
     );
   }
@@ -217,11 +223,13 @@ class AppUtils {
   /// 解析基于 URI 格式的协议链接（VLESS / Trojan / Hysteria2）
   ///
   /// 格式：{protocol}://{userInfo}@{host}:{port}?{params}#{name}
+  /// 通用参数：security, type, sni, alpn, fp, pbk, sid, flow, headerType
   static NodeConfig _parseUriBased(String uri, ProxyProtocol protocol) {
     final parsed = Uri.parse(uri);
     final params = parsed.queryParameters;
     final name = params['name'] ?? parsed.fragment;
     final effectiveName = name.isEmpty ? protocol.label : name;
+    final security = params['security'] ?? 'none';
 
     Map<String, dynamic> extra;
     switch (protocol) {
@@ -229,21 +237,42 @@ class AppUtils {
         extra = {
           'uuid': parsed.userInfo,
           'flow': params['flow'],
-          'security': params['security'] ?? 'none',
+          'security': security,
           'type': params['type'] ?? 'tcp',
           'sni': params['sni'],
+          'alpn': params['alpn'],
+          'fingerprint': params['fp'],
+          'tls': security == 'tls' || security == 'reality',
+          'reality': security == 'reality',
+          'realityPublicKey': params['pbk'],
+          'realityShortId': params['sid'],
+          'wsPath': params['path'],
+          'wsHost': params['host'],
+          'grpcServiceName': params['serviceName'],
         };
       case ProxyProtocol.trojan:
         extra = {
           'password': parsed.userInfo,
           'sni': params['sni'],
           'type': params['type'] ?? 'tcp',
+          'security': security,
+          'alpn': params['alpn'],
+          'fingerprint': params['fp'],
+          'tls': true,
+          'wsPath': params['path'],
+          'wsHost': params['host'],
+          'grpcServiceName': params['serviceName'],
+          'allowInsecure': params['allowInsecure'] == '1',
         };
       case ProxyProtocol.hysteria2:
         extra = {
           'password': parsed.userInfo,
           'sni': params['sni'],
           'insecure': params['insecure'] == '1',
+          'alpn': params['alpn'],
+          'fingerprint': params['fp'],
+          'obfs': params['obfs'],
+          'obfsPassword': params['obfs-password'],
         };
       default:
         extra = {'rawUri': uri};
@@ -261,7 +290,10 @@ class AppUtils {
 
   /// 解析 Shadowsocks 协议 URI
   ///
-  /// 格式：ss://{Base64(method:password)}@{host}:{port}#{name}
+  /// 支持两种格式：
+  /// 1. 传统格式：ss://{Base64(method:password)}@{host}:{port}#{name}
+  /// 2. SIP002 格式：ss://{Base64(method:password)}@{host}:{port}?{params}#{name}
+  /// 3. SS 2022 格式：ss://{Base64(method:base64key)}@{host}:{port}#{name}
   static NodeConfig _parseShadowsocks(String uri) {
     final content = uri.replaceFirst('ss://', '');
     final hashIndex = content.indexOf('#');
@@ -273,21 +305,43 @@ class AppUtils {
     final atIndex = body.indexOf('@');
     if (atIndex < 0) throw const FormatException('Invalid SS URI format');
 
-    final methodAndPassword =
-        utf8.decode(base64Decode(body.substring(0, atIndex)));
-    final colonIndex = methodAndPassword.indexOf(':');
-    final method = methodAndPassword.substring(0, colonIndex);
-    final password = methodAndPassword.substring(colonIndex + 1);
+    final encodedPart = body.substring(0, atIndex);
+    String method;
+    String password;
+
+    try {
+      final decoded = utf8.decode(base64Decode(encodedPart));
+      final colonIndex = decoded.indexOf(':');
+      method = decoded.substring(0, colonIndex);
+      password = decoded.substring(colonIndex + 1);
+    } catch (_) {
+      // SIP002 格式：method:password 可能未编码
+      final colonIndex = encodedPart.indexOf(':');
+      if (colonIndex >= 0) {
+        method = encodedPart.substring(0, colonIndex);
+        password = encodedPart.substring(colonIndex + 1);
+      } else {
+        throw const FormatException('Invalid SS URI: cannot decode credentials');
+      }
+    }
 
     final serverPart = body.substring(atIndex + 1);
     final colonPos = serverPart.lastIndexOf(':');
+    if (colonPos < 0) throw const FormatException('Invalid SS URI: missing port');
+
+    // 解析 SIP002 查询参数（如 plugin）
+    final questionPos = serverPart.indexOf('?');
+    final hostPort = questionPos >= 0
+        ? serverPart.substring(0, questionPos)
+        : serverPart;
+    final hostColon = hostPort.lastIndexOf(':');
 
     return NodeConfig(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       protocol: ProxyProtocol.shadowsocks,
-      address: serverPart.substring(0, colonPos),
-      port: int.parse(serverPart.substring(colonPos + 1)),
+      address: hostPort.substring(0, hostColon),
+      port: int.parse(hostPort.substring(hostColon + 1)),
       extra: {
         'method': method,
         'password': password,

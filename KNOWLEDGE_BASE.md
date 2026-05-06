@@ -127,3 +127,21 @@ UI层 → context.watch/read<SubscriptionService>()
 | 修复竞态条件 | `proxy_service.dart` | start() exitCode.timeout onTimeout:()=>-1 不正确→try/catch TimeoutException |
 | 补充协议支持 | `config_adapter.dart` | mihomo 添加 Hysteria/TUIC 协议映射，不再降级为 socks5 |
 | 修复临时文件 | `kernel_manager.dart` | downloadKernel 下载失败后清理 _download 临时文件 |
+
+### 第四轮 (2026-05-06) — 链路功能完善
+| 优化项 | 文件 | 说明 |
+|--------|------|------|
+| 订阅解析增强 | `subscription_service.dart` | 支持 Base64 整体编码 + Clash YAML 格式订阅 |
+| VLESS 链接解析 | `app_utils.dart` | 补充 Reality(pbk/sid)/TLS/WS/gRPC 字段 |
+| VMess 链接解析 | `app_utils.dart` | 补充 TLS/sni/alpn/fingerprint 字段 |
+| Trojan 链接解析 | `app_utils.dart` | 补充 TLS/alpn/fingerprint/WS/gRPC 字段 |
+| SS 链接解析 | `app_utils.dart` | 支持 SIP002 格式 + SS2022 兼容 |
+| sing-box VMess | `config_adapter.dart` | 补充 TLS/WS/gRPC/HTTP 传输层配置 |
+| sing-box VLESS | `config_adapter.dart` | 修复 Reality 字段名 + 补充 WS/gRPC 传输层 |
+| sing-box Trojan | `config_adapter.dart` | 补充 TLS alpn/fingerprint + WS/gRPC 传输层 |
+| mihomo VMess | `config_adapter.dart` | 补充 TLS + ws-opts/grpc-opts 传输层 |
+| mihomo VLESS | `config_adapter.dart` | 补充 Reality-opts + TLS + ws-opts/grpc-opts |
+| mihomo Trojan | `config_adapter.dart` | 补充 ws-opts/grpc-opts 传输层 |
+| v2ray VMess | `config_adapter.dart` | 补充 streamSettings TLS/WS/gRPC |
+| v2ray VLESS | `config_adapter.dart` | 补充 Reality/TLS/WS/gRPC streamSettings |
+| v2ray Trojan | `config_adapter.dart` | 补充 streamSettings TLS/WS/gRPC |
