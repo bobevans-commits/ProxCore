@@ -145,3 +145,9 @@ UI层 → context.watch/read<SubscriptionService>()
 | v2ray VMess | `config_adapter.dart` | 补充 streamSettings TLS/WS/gRPC |
 | v2ray VLESS | `config_adapter.dart` | 补充 Reality/TLS/WS/gRPC streamSettings |
 | v2ray Trojan | `config_adapter.dart` | 补充 streamSettings TLS/WS/gRPC |
+
+### 第五轮 (2026-05-06) — TUN 权限 + CI/CD 发布
+| 优化项 | 文件 | 说明 |
+|--------|------|------|
+| TUN 权限检查 | `proxy_service.dart` | toggleTun() 开启前先检查管理员权限，拒绝提权返回 false |
+| CI/CD 发布 | `.github/workflows/release.yml` | main 分支 push 自动构建4平台+创建 GitHub Release |

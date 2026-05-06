@@ -177,11 +177,29 @@ class ProxyService extends ChangeNotifier {
 
   /// 切换 TUN 模式
   ///
+  /// TUN 模式需要管理员/root 权限：
+  /// - Windows: 通过 wintun.dll 创建虚拟网卡，需要 UAC 提权
+  /// - macOS: 通过 utun* 接口创建虚拟网卡，需要 root 权限
+  /// - Linux: 通过 /dev/net/tun 创建 TUN 设备，需要 root 或 CAP_NET_ADMIN
+  /// - Android: 通过 VpnService API 创建 VPN 接口，需要 VPN 权限
+  ///
   /// 开启前检查内核是否已安装，未安装则不执行
+  /// 如果用户拒绝提权，TUN 不会被开启，返回 false
   /// 如果代理正在运行，切换后自动重启以应用新配置
-  Future<void> toggleTun(bool enable) async {
+  Future<bool> toggleTun(bool enable) async {
     if (enable && !isKernelInstalled()) {
-      return;
+      return false;
+    }
+
+    if (enable && !Platform.isAndroid) {
+      final hasAdmin = await AdminService.hasAdminPrivileges();
+      if (!hasAdmin) {
+        final granted = await AdminService.requestAdminPrivileges();
+        if (!granted) {
+          _addLog('[ProxyService] TUN requires admin privileges, request denied');
+          return false;
+        }
+      }
     }
 
     final wasRunning = isRunning;
@@ -190,8 +208,11 @@ class ProxyService extends ChangeNotifier {
     updateConfig(_config.copyWith(tunEnabled: enable));
 
     if (wasRunning && currentNode != null) {
+      _addLog('[ProxyService] Restarting proxy for TUN change...');
       await restart(currentNode);
     }
+
+    return true;
   }
 
   // ---- 节点管理 ----
