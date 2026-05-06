@@ -47,8 +47,8 @@ flutter config --enable-windows-desktop
 ### Step 1: 克隆项目
 ```powershell
 cd C:\Projects
-git clone https://github.com/your-username/proxy_client.git
-cd proxy_client
+git clone https://github.com/your-username/proxcore.git
+cd proxcore
 ```
 
 ### Step 2: 构建 Rust 核心
@@ -114,8 +114,8 @@ copy ..\rust_core\target\release\proxcore.dll dist\
 # 创建启动脚本
 @"
 @echo off
-echo Starting Proxy Client...
-start "" "proxy_client.exe"
+echo Starting ProxCore...
+start "" "proxcore.exe"
 exit
 "@ | Out-File -FilePath "dist\start.bat" -Encoding ASCII
 
@@ -124,7 +124,7 @@ exit
 # ProxCore for Windows
 
 ## 使用方法
-1. 运行 proxy_client.exe 或 start.bat
+1. 运行 proxcore.exe 或 start.bat
 2. 导入配置文件 (JSON/YAML)
 3. 选择节点并点击连接
 4. 如需系统代理，启用 TUN 模式
@@ -135,9 +135,9 @@ exit
 "@ | Out-File -FilePath "dist\README.txt" -Encoding ASCII
 
 # 打包为 ZIP
-Compress-Archive -Path dist\* -DestinationPath "ProxyClient-windows-x64-dev.zip"
+Compress-Archive -Path dist\* -DestinationPath "ProxCore-windows-x64-dev.zip"
 
-echo "构建完成！文件：ProxyClient-windows-x64-dev.zip"
+echo "构建完成！文件：ProxCore-windows-x64-dev.zip"
 ```
 
 ## 🧪 测试功能
@@ -277,7 +277,7 @@ flutter build windows --release
 flutter build windows --release --obfuscate --split-debug-info=symbols
 
 # 压缩产物
-Compress-Archive -Path dist\* -DestinationPath "ProxyClient-windows-x64-v1.0.0.zip" -CompressionLevel Optimal
+Compress-Archive -Path dist\* -DestinationPath "ProxCore-windows-x64-v1.0.0.zip" -CompressionLevel Optimal
 ```
 
 ## 📝 配置文件示例

@@ -274,9 +274,9 @@ A: Close unused applications
 LOGS & SUPPORT
 --------------------------------------------------------------------------------
 
-Log files are stored in: %APPDATA%\ProxyClient\logs
+Log files are stored in: %APPDATA%\ProxCore\logs
 
-For support and updates, visit: https://github.com/your-username/proxy_client
+For support and updates, visit: https://github.com/your-username/proxcore
 
 ================================================================================
 "@ | Out-File -FilePath "$OutputDir\README.txt" -Encoding ASCII

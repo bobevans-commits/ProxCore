@@ -94,7 +94,7 @@ flutter build windows --release
 mkdir dist
 xcopy /E /I /Y build\windows\x64\runner\Release\* dist\
 copy assets\bin\sing-box*.exe dist\
-Compress-Archive -Path dist\* -DestinationPath "ProxyClient-windows-x64-dev.zip"
+Compress-Archive -Path dist\* -DestinationPath "ProxCore-windows-x64-dev.zip"
 ```
 
 #### Linux 本地构建
@@ -170,30 +170,30 @@ flutter build appbundle --release
 
 ### Windows
 ```
-ProxyClient-windows-x64-v1.0.0.zip
-├── proxy_client.exe          # Flutter 应用主程序
-├── proxy_client.dll          # Rust 核心库
+ProxCore-windows-x64-v1.0.0.zip
+├── proxcore.exe          # Flutter 应用主程序
+├── proxcore.dll          # Rust 核心库
 ├── sing-box.exe              # sing-box 核心
 ├── flutter_windows.dll       # Flutter 引擎
 ├── icudtl.dat                # ICU 数据
 ├── start.bat                 # 快捷启动脚本
 └── README.txt                # 使用说明
 
-ProxyClient-Setup.exe         # NSIS 安装程序 (可选)
+ProxCore-Setup.exe         # NSIS 安装程序 (可选)
 ```
 
 ### macOS
 ```
-ProxyClient-macos-universal.dmg
-└── ProxyClient.app           # Universal Binary (Intel + M1/M2)
+ProxCore-macos-universal.dmg
+└── ProxCore.app           # Universal Binary (Intel + M1/M2)
     └── Contents/MacOS/
-        ├── ProxyClient       # Flutter 应用
+        ├── ProxCore       # Flutter 应用
         └── sing-box          # sing-box 核心
 ```
 
 ### Linux
 ```
-ProxyClient-linux-x86_64.AppImage
+ProxCore-linux-x86_64.AppImage
 # 自包含的可执行文件，无需安装
 ```
 
@@ -306,7 +306,7 @@ curl -L https://mirror.ghproxy.com/https://github.com/SagerNet/sing-box/releases
 sudo apt install fuse
 
 # 或以兼容模式运行
-./ProxyClient-*.AppImage --appimage-extract-and-run
+./ProxCore-*.AppImage --appimage-extract-and-run
 ```
 
 ## 📈 优化建议

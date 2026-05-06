@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: singbox-pro-max-ultra (proxy_client_ui)
+**项目名称**: ProxCore (proxcore)
 **项目类型**: 多平台代理客户端
 **项目描述**: 基于 Flutter 的多内核代理客户端 UI，支持 sing-box、mihomo (Clash Meta)、v2ray (Xray) 三种代理内核，覆盖 Windows、macOS、Linux、Android 平台。
 

@@ -8,11 +8,10 @@ import 'services/kernel_manager.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProxyClientApp());
-}
+  runApp(const ProxCoreApp());
 
-class ProxyClientApp extends StatelessWidget {
-  const ProxyClientApp({super.key});
+class ProxCoreApp extends StatelessWidget {
+  const ProxCoreApp({super.key});
 
   @override
   Widget build(BuildContext context) {

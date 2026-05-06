@@ -92,10 +92,10 @@ base64 -w 0 upload-keystore.jks > keystore_base64.txt
 
 | 平台 | 文件名格式 | 说明 |
 |------|-----------|------|
-| Windows | `ProxyClient-windows-x64-v1.0.0.zip` | 绿色免安装版 |
-| macOS | `ProxyClient-macos-universal.dmg` | 支持 Intel/Apple Silicon |
-| Linux | `ProxyClient-linux-x86_64.AppImage` | AppImage 通用包 |
-| Linux | `ProxyClient_v1.0.0_amd64.deb` | Debian/Ubuntu 包 |
+| Windows | `ProxCore-windows-x64-v1.0.0.zip` | 绿色免安装版 |
+| macOS | `ProxCore-macos-universal.dmg` | 支持 Intel/Apple Silicon |
+| Linux | `ProxCore-linux-x86_64.AppImage` | AppImage 通用包 |
+| Linux | `ProxCore_v1.0.0_amd64.deb` | Debian/Ubuntu 包 |
 | Android | `app-armeabi-v7a-release.apk` | ARMv7 设备 |
 | Android | `app-arm64-v8a-release.apk` | ARM64 设备 |
 | Android | `app-x86_64-release.apk` | x86_64 模拟器 |
@@ -198,11 +198,11 @@ bash scripts/download_kernels.sh ./flutter_ui/assets/bin
 每次 Release 会自动生成更新日志，格式：
 
 ```markdown
-## Proxy Client v1.0.0
+## ProxCore v1.0.0
 
 ### Downloads
-- **Windows**: `ProxyClient-windows-x64-v1.0.0.zip`
-- **macOS**: `ProxyClient-macos-universal.dmg`
+- **Windows**: `ProxCore-windows-x64-v1.0.0.zip`
+- **macOS**: `ProxCore-macos-universal.dmg`
 - ...
 
 ### Features

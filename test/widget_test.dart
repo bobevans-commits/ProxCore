@@ -4,7 +4,7 @@ import 'package:mockito/annotations.dart';
 
 @GenerateMocks([])
 void main() {
-  group('Proxy Client UI Tests', () {
+  group('ProxCore UI Tests', () {
     testWidgets('App should display home screen', (WidgetTester tester) async {
       // TODO: Implement when Flutter is available
       expect(true, isTrue);
