@@ -12,6 +12,10 @@ import '../services/subscription_service.dart';
 import '../services/kernel_manager.dart';
 import 'kernel_settings_screen.dart';
 
+/// SettingsScreen - 应用设置页面
+///
+/// 提供内核管理、网络设置、路由规则、DNS 配置、订阅刷新、
+/// 端口设置、数据导入导出、主题切换和关于信息等设置项
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -306,6 +310,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// 导出配置到文件并分享
   Future<void> _exportConfig(BuildContext context) async {
     try {
       final proxyService = context.read<ProxyService>();
@@ -329,6 +334,7 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  /// 从文件导入配置
   Future<void> _importConfig(BuildContext context) async {
     try {
       final result = await FilePicker.pickFiles(
@@ -385,6 +391,7 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  /// 确认清除所有数据的对话框
   void _confirmClearData(BuildContext context) {
     showDialog(
       context: context,
@@ -418,6 +425,9 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// 显示 DNS 配置对话框
+  ///
+  /// [config] 当前代理配置
   void _showDnsSettings(BuildContext context, ProxyConfig config) {
     var dnsMode = config.dnsConfig.mode;
     final serversCtrl = TextEditingController(
@@ -563,6 +573,9 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// 显示订阅自动刷新间隔设置对话框
+  ///
+  /// [config] 当前代理配置
   void _showSubRefreshSettings(BuildContext context, ProxyConfig config) {
     final options = [0, 15, 30, 60, 120, 360, 720];
     showDialog(
@@ -602,6 +615,9 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// 显示端口设置对话框
+  ///
+  /// [config] 当前代理配置
   void _showPortSettings(BuildContext context, ProxyConfig config) {
     final socksCtrl = TextEditingController(text: '${config.socksPort}');
     final httpCtrl = TextEditingController(text: '${config.httpPort}');
@@ -679,10 +695,15 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  /// 切换主题模式
   void _showThemePicker(BuildContext context) {
     MyApp.toggleThemeOf(context);
   }
 
+  /// TUN 模式切换处理
+  ///
+  /// [context] 上下文，[proxyService] 代理服务，[enable] 是否开启 TUN
+  /// 开启时若未安装内核，会弹出对话框引导安装
   Future<void> _onTunToggle(
     BuildContext context,
     ProxyService proxyService,
@@ -744,8 +765,14 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
+/// _SettingsKernelInstallScreen - 设置页内的内核安装页面
+///
+/// 从设置页 TUN 模式引导进入，下载并安装指定类型的内核
 class _SettingsKernelInstallScreen extends StatefulWidget {
+  /// 要安装的内核类型
   final KernelType kernelType;
+
+  /// 内核管理器实例
   final KernelManager kernelManager;
 
   const _SettingsKernelInstallScreen({
@@ -758,9 +785,15 @@ class _SettingsKernelInstallScreen extends StatefulWidget {
       _SettingsKernelInstallScreenState();
 }
 
+/// _SettingsKernelInstallScreenState - _SettingsKernelInstallScreen 的状态类
+///
+/// 管理下载进度和状态，监听 KernelManager 的更新通知
 class _SettingsKernelInstallScreenState
     extends State<_SettingsKernelInstallScreen> {
+  /// 是否正在下载
   bool _downloading = false;
+
+  /// 下载进度（0.0 ~ 1.0），null 表示不确定进度
   double? _progress;
 
   @override
@@ -769,6 +802,9 @@ class _SettingsKernelInstallScreenState
     _startDownload();
   }
 
+  /// 启动内核下载
+  ///
+  /// 下载成功后自动返回上一页并传递 true，失败则显示错误提示
   Future<void> _startDownload() async {
     setState(() {
       _downloading = true;
@@ -797,6 +833,7 @@ class _SettingsKernelInstallScreenState
     }
   }
 
+  /// KernelManager 更新回调，同步下载进度
   void _onManagerUpdate() {
     if (mounted) {
       setState(() {
@@ -876,9 +913,17 @@ class _SettingsKernelInstallScreenState
   }
 }
 
+/// _SectionCard - 设置分组卡片
+///
+/// 带标题和图标的设置项分组容器
 class _SectionCard extends StatelessWidget {
+  /// 分组标题
   final String title;
+
+  /// 分组图标
   final IconData icon;
+
+  /// 分组内的子组件列表
   final List<Widget> children;
 
   const _SectionCard({

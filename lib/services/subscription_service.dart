@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/config.dart';
+import '../utils/app_utils.dart';
 import 'config_storage_service.dart';
 
 /// 订阅管理服务 — 管理代理订阅源和节点解析
@@ -192,13 +193,46 @@ class SubscriptionService extends ChangeNotifier {
 
   /// 解析订阅内容为节点列表
   ///
-  /// 逐行解析，支持以下协议 URI：
-  /// - vmess:// Base64 编码的 JSON
-  /// - vless:// URI 格式
-  /// - trojan:// URI 格式
-  /// - ss:// Base64 编码的 Shadowsocks URI
-  /// - hysteria2:// / hy2:// URI 格式
+  /// 支持三种订阅格式：
+  /// 1. 逐行协议 URI（vmess://, vless://, trojan://, ss://, hysteria2:// 等）
+  /// 2. Base64 整体编码（先解码再逐行解析）
+  /// 3. Clash YAML 格式（解析 proxies 字段）
   List<NodeConfig> _parseSubscriptionContent(String content) {
+    final trimmed = content.trim();
+
+    // 尝试 Base64 整体解码
+    final decoded = _tryBase64Decode(trimmed);
+    if (decoded != null) {
+      return _parseLineByLine(decoded);
+    }
+
+    // 尝试 Clash YAML 格式
+    if (trimmed.startsWith('proxies:') || trimmed.contains('\nproxies:')) {
+      return _parseClashYaml(trimmed);
+    }
+
+    // 默认逐行解析
+    return _parseLineByLine(trimmed);
+  }
+
+  /// 尝试 Base64 整体解码
+  ///
+  /// 如果内容是有效的 Base64 编码，解码后返回原始字符串
+  /// 解码失败返回 null（表示不是 Base64 格式）
+  String? _tryBase64Decode(String content) {
+    try {
+      final cleaned = content.replaceAll(RegExp(r'\s'), '');
+      // 检查是否看起来像 Base64（只含 Base64 字符集）
+      if (!RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(cleaned)) return null;
+      final decoded = utf8.decode(base64Decode(cleaned));
+      // 验证解码后内容包含协议标识
+      if (decoded.contains('://')) return decoded;
+    } catch (_) {}
+    return null;
+  }
+
+  /// 逐行解析协议 URI
+  List<NodeConfig> _parseLineByLine(String content) {
     final nodes = <NodeConfig>[];
 
     final lines = content.split('\n');
@@ -206,175 +240,194 @@ class SubscriptionService extends ChangeNotifier {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
 
-      if (trimmed.startsWith('vmess://')) {
-        final node = _parseVmess(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('vless://')) {
-        final node = _parseVless(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('trojan://')) {
-        final node = _parseTrojan(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('ss://')) {
-        final node = _parseShadowsocks(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) {
-        final node = _parseHysteria2(trimmed);
-        if (node != null) nodes.add(node);
+      try {
+        final node = AppUtils.parseProxyLink(trimmed);
+        nodes.add(node);
+      } catch (e) {
+        debugPrint('SubscriptionService: parse line error: $e');
       }
     }
 
     return nodes;
   }
 
-  /// 解析 VMess 协议 URI
+  /// 解析 Clash YAML 格式订阅
   ///
-  /// 格式：vmess://{Base64编码的JSON}
-  /// JSON 字段：id(名称), add(地址), port(端口), id(UUID), aid(alterId), net(传输协议)
-  NodeConfig? _parseVmess(String uri) {
-    try {
-      final encoded = uri.replaceFirst('vmess://', '');
-      final decoded = utf8.decode(base64Decode(encoded));
-      final json = jsonDecode(decoded) as Map<String, dynamic>;
-      return NodeConfig(
-        id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: json['ps'] as String? ?? 'VMess',
-        protocol: ProxyProtocol.vmess,
-        address: json['add'] as String? ?? '',
-        port: int.tryParse(json['port']?.toString() ?? '0') ?? 0,
-        extra: {
-          'uuid': json['id'],
-          'alterId': json['aid'] ?? 0,
-          'security': json['net'] ?? 'tcp',
-          'network': json['net'] ?? 'tcp',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseVmess error: $e');
-      return null;
+  /// 提取 proxies 列表中的节点信息
+  /// 支持 VMess/VLESS/Trojan/Shadowsocks/Hysteria2 协议
+  List<NodeConfig> _parseClashYaml(String content) {
+    final nodes = <NodeConfig>[];
+
+    // 简易 YAML proxies 解析（不依赖 yaml 包，减少依赖）
+    final lines = content.split('\n');
+    bool inProxies = false;
+    Map<String, String>? currentProxy;
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+
+      if (trimmed.startsWith('proxies:')) {
+        inProxies = true;
+        continue;
+      }
+
+      if (inProxies) {
+        // 新节点开始（- name: xxx）
+        if (trimmed.startsWith('- name:') || trimmed.startsWith('- {')) {
+          // 保存上一个节点
+          if (currentProxy != null) {
+            final node = _clashProxyToNode(currentProxy);
+            if (node != null) nodes.add(node);
+          }
+          currentProxy = {};
+
+          // 单行格式: - {name: xxx, type: vmess, ...}
+          if (trimmed.startsWith('- {')) {
+            final inner = trimmed.substring(3, trimmed.length - 1);
+            _parseClashInlineProxy(inner, currentProxy);
+            if (currentProxy.isNotEmpty) {
+              final node = _clashProxyToNode(currentProxy);
+              if (node != null) nodes.add(node);
+              currentProxy = null;
+            }
+            continue;
+          }
+
+          // 提取 name
+          final nameMatch = RegExp(r'name:\s*(.+)').firstMatch(trimmed);
+          if (nameMatch != null) {
+            currentProxy['name'] = nameMatch.group(1)!.trim().replaceAll('"', '').replaceAll("'", '');
+          }
+          continue;
+        }
+
+        // 缩进回退，proxies 段结束
+        if (!trimmed.startsWith(' ') && !trimmed.startsWith('-') && trimmed.isNotEmpty) {
+          if (currentProxy != null) {
+            final node = _clashProxyToNode(currentProxy);
+            if (node != null) nodes.add(node);
+            currentProxy = null;
+          }
+          inProxies = false;
+          continue;
+        }
+
+        // 解析属性行（key: value）
+        if (currentProxy != null) {
+          final match = RegExp(r'(\w+):\s*(.+)').firstMatch(trimmed);
+          if (match != null) {
+            currentProxy[match.group(1)!] = match.group(2)!.trim().replaceAll('"', '').replaceAll("'", '');
+          }
+        }
+      }
+    }
+
+    // 保存最后一个节点
+    if (currentProxy != null) {
+      final node = _clashProxyToNode(currentProxy);
+      if (node != null) nodes.add(node);
+    }
+
+    return nodes;
+  }
+
+  /// 解析 Clash 单行代理格式
+  void _parseClashInlineProxy(String inner, Map<String, String> proxy) {
+    for (final part in inner.split(',')) {
+      final kv = part.split(':');
+      if (kv.length >= 2) {
+        proxy[kv[0].trim()] = kv.sublist(1).join(':').trim().replaceAll('"', '').replaceAll("'", '');
+      }
     }
   }
 
-  /// 解析 VLESS 协议 URI
-  ///
-  /// 格式：vless://{uuid}@{host}:{port}?{params}#{name}
-  /// 参数：flow, security, type, sni 等
-  NodeConfig? _parseVless(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      final params = parsed.queryParameters;
-      final name = params['name'] ?? parsed.fragment;
-      final effectiveName = name.isEmpty ? 'VLESS' : name;
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: effectiveName,
-        protocol: ProxyProtocol.vless,
-        address: parsed.host,
-        port: parsed.port,
-        extra: {
-          'uuid': parsed.userInfo,
-          'flow': params['flow'],
-          'security': params['security'] ?? 'none',
-          'type': params['type'] ?? 'tcp',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseVless error: $e');
-      return null;
-    }
-  }
+  /// 将 Clash 代理字典转换为 NodeConfig
+  NodeConfig? _clashProxyToNode(Map<String, String> proxy) {
+    final type = proxy['type']?.toLowerCase();
+    if (type == null) return null;
 
-  /// 解析 Trojan 协议 URI
-  ///
-  /// 格式：trojan://{password}@{host}:{port}?{params}#{name}
-  /// 参数：sni, type 等
-  NodeConfig? _parseTrojan(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      final params = parsed.queryParameters;
-      final name = params['name'] ?? parsed.fragment;
-      final effectiveName = name.isEmpty ? 'Trojan' : name;
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: effectiveName,
-        protocol: ProxyProtocol.trojan,
-        address: parsed.host,
-        port: parsed.port,
-        extra: {
-          'password': parsed.userInfo,
-          'sni': params['sni'],
-          'type': params['type'] ?? 'tcp',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseTrojan error: $e');
-      return null;
-    }
-  }
+    final name = proxy['name'] ?? type;
+    final server = proxy['server'] ?? '';
+    final port = int.tryParse(proxy['port'] ?? '0') ?? 0;
 
-  /// 解析 Shadowsocks 协议 URI
-  ///
-  /// 格式：ss://{Base64(method:password)}@{host}:{port}#{name}
-  NodeConfig? _parseShadowsocks(String uri) {
-    try {
-      final content = uri.replaceFirst('ss://', '');
-      final hashIndex = content.indexOf('#');
-      final name = hashIndex >= 0 ? Uri.decodeComponent(content.substring(hashIndex + 1)) : 'Shadowsocks';
-      final body = hashIndex >= 0 ? content.substring(0, hashIndex) : content;
-
-      final atIndex = body.indexOf('@');
-      if (atIndex < 0) return null;
-
-      final methodAndPassword = utf8.decode(base64Decode(body.substring(0, atIndex)));
-      final colonIndex = methodAndPassword.indexOf(':');
-      final method = methodAndPassword.substring(0, colonIndex);
-      final password = methodAndPassword.substring(colonIndex + 1);
-
-      final serverPart = body.substring(atIndex + 1);
-      final colonPos = serverPart.lastIndexOf(':');
-
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        protocol: ProxyProtocol.shadowsocks,
-        address: serverPart.substring(0, colonPos),
-        port: int.parse(serverPart.substring(colonPos + 1)),
-        extra: {
-          'method': method,
-          'password': password,
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseShadowsocks error: $e');
-      return null;
-    }
-  }
-
-  /// 解析 Hysteria2 协议 URI
-  ///
-  /// 格式：hysteria2://{password}@{host}:{port}?{params}#{name}
-  /// 参数：sni, insecure 等
-  NodeConfig? _parseHysteria2(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      final params = parsed.queryParameters;
-      final name = params['name'] ?? parsed.fragment;
-      final effectiveName = name.isEmpty ? 'Hysteria2' : name;
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: effectiveName,
-        protocol: ProxyProtocol.hysteria2,
-        address: parsed.host,
-        port: parsed.port,
-        extra: {
-          'password': parsed.userInfo,
-          'sni': params['sni'],
-          'insecure': params['insecure'] == '1',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseHysteria2 error: $e');
-      return null;
+    switch (type) {
+      case 'vmess':
+        return NodeConfig(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          protocol: ProxyProtocol.vmess,
+          address: server,
+          port: port,
+          extra: {
+            'uuid': proxy['uuid'] ?? proxy['alterId'] ?? '',
+            'alterId': int.tryParse(proxy['alterId'] ?? '0') ?? 0,
+            'security': proxy['cipher'] ?? proxy['security'] ?? 'auto',
+            'network': proxy['network'] ?? 'tcp',
+            'wsPath': proxy['ws-opts'] != null ? proxy['ws-path'] : null,
+            'wsHost': proxy['ws-opts'] != null ? proxy['ws-headers']?.split('\n').firstWhere((_) => _.startsWith('Host:'), orElse: () => '').replaceFirst('Host:', '').trim() : null,
+            'tls': proxy['tls'] == 'true' || proxy['tls'] == true.toString(),
+            'sni': proxy['servername'] ?? proxy['sni'],
+          },
+        );
+      case 'vless':
+        return NodeConfig(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          protocol: ProxyProtocol.vless,
+          address: server,
+          port: port,
+          extra: {
+            'uuid': proxy['uuid'] ?? '',
+            'flow': proxy['flow'],
+            'security': proxy['security'] ?? 'none',
+            'type': proxy['network'] ?? proxy['type'] ?? 'tcp',
+            'sni': proxy['servername'] ?? proxy['sni'],
+            'realityPublicKey': proxy['reality-opts'] != null ? proxy['public-key'] : null,
+            'realityShortId': proxy['reality-opts'] != null ? proxy['short-id'] : null,
+            'tls': proxy['tls'] == 'true',
+          },
+        );
+      case 'trojan':
+        return NodeConfig(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          protocol: ProxyProtocol.trojan,
+          address: server,
+          port: port,
+          extra: {
+            'password': proxy['password'] ?? '',
+            'sni': proxy['sni'] ?? proxy['servername'],
+            'type': proxy['network'] ?? 'tcp',
+            'tls': true,
+          },
+        );
+      case 'ss':
+        return NodeConfig(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          protocol: ProxyProtocol.shadowsocks,
+          address: server,
+          port: port,
+          extra: {
+            'method': proxy['cipher'] ?? proxy['method'] ?? 'aes-256-gcm',
+            'password': proxy['password'] ?? '',
+          },
+        );
+      case 'hysteria2':
+        return NodeConfig(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          protocol: ProxyProtocol.hysteria2,
+          address: server,
+          port: port,
+          extra: {
+            'password': proxy['password'] ?? '',
+            'sni': proxy['sni'] ?? server,
+            'insecure': proxy['skip-cert-verify'] == 'true',
+          },
+        );
+      default:
+        return null;
     }
   }
 

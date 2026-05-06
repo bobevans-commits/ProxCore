@@ -188,19 +188,28 @@ class WebDavSyncService extends ChangeNotifier {
   }
 
   /// 序列化为 JSON
+  ///
+  /// 密码使用 Base64 编码存储，避免明文暴露
   Map<String, dynamic> toJson() => {
         'server_url': _serverUrl,
         'username': _username,
-        'password': _password,
+        'password': base64Encode(utf8.encode(_password)),
         'remote_path': _remotePath,
         'last_sync_time': _lastSyncTime,
       };
 
   /// 从 JSON 反序列化并自动配置连接
+  ///
+  /// 自动检测密码是否为 Base64 编码，兼容旧版明文格式
   void loadFromJson(Map<String, dynamic> json) {
     _serverUrl = json['server_url'] as String? ?? '';
     _username = json['username'] as String? ?? '';
-    _password = json['password'] as String? ?? '';
+    final rawPassword = json['password'] as String? ?? '';
+    try {
+      _password = utf8.decode(base64Decode(rawPassword));
+    } catch (_) {
+      _password = rawPassword;
+    }
     _remotePath = json['remote_path'] as String? ?? '/proxcore/';
     _lastSyncTime = json['last_sync_time'] as String?;
 

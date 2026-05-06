@@ -24,6 +24,9 @@ class TrayService with TrayListener {
   /// 托盘是否已初始化
   bool _initialized = false;
 
+  /// 构造托盘服务
+  ///
+  /// [proxyService] 代理服务实例，用于控制代理启停和获取状态
   TrayService(this._proxyService);
 
   /// 初始化系统托盘

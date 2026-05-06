@@ -29,6 +29,12 @@ class ClashApiService extends ChangeNotifier {
   /// WebSocket 订阅，用于取消流量监听
   StreamSubscription? _wsSubscription;
 
+  /// 日志流 WebSocket 通道
+  WebSocketChannel? _logChannel;
+
+  /// 日志流 WebSocket 订阅
+  StreamSubscription? _logSubscription;
+
   /// Clash API 基础地址，默认 http://127.0.0.1:9090
   String _apiUrl = 'http://127.0.0.1:9090';
 
@@ -133,9 +139,9 @@ class ClashApiService extends ChangeNotifier {
     try {
       final wsUrl = _apiUrl.replaceFirst('http', 'ws');
       final uri = Uri.parse('$wsUrl/logs?token=$_secret&level=info');
-      final logChannel = WebSocketChannel.connect(uri);
+      _logChannel = WebSocketChannel.connect(uri);
 
-      logChannel.stream.listen(
+      _logSubscription = _logChannel!.stream.listen(
         (data) {
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
@@ -172,6 +178,10 @@ class ClashApiService extends ChangeNotifier {
     _wsSubscription = null;
     await _wsChannel?.sink.close();
     _wsChannel = null;
+    await _logSubscription?.cancel();
+    _logSubscription = null;
+    await _logChannel?.sink.close();
+    _logChannel = null;
     _liveUpload = 0;
     _liveDownload = 0;
     notifyListeners();

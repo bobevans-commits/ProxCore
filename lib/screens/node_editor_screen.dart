@@ -4,8 +4,15 @@ import 'package:uuid/uuid.dart';
 import '../models/config.dart';
 import '../utils/app_utils.dart';
 
+/// NodeEditorScreen - 节点编辑器页面
+///
+/// 用于添加或编辑代理节点配置，支持多种协议（VMess、VLESS、Trojan 等），
+/// 根据所选协议动态显示对应的配置字段
 class NodeEditorScreen extends StatefulWidget {
+  /// 待编辑的节点，为 null 时表示新增节点
   final NodeConfig? node;
+
+  /// 保存回调，传入编辑后的节点配置
   final void Function(NodeConfig) onSave;
 
   const NodeEditorScreen({
@@ -18,13 +25,26 @@ class NodeEditorScreen extends StatefulWidget {
   State<NodeEditorScreen> createState() => _NodeEditorScreenState();
 }
 
+/// _NodeEditorScreenState - NodeEditorScreen 的状态类
+///
+/// 管理表单控制器和协议相关的动态字段
 class _NodeEditorScreenState extends State<NodeEditorScreen> {
+  /// 表单全局键，用于表单验证
   final _formKey = GlobalKey<FormState>();
+
+  /// 节点名称控制器
   late TextEditingController _nameController;
+
+  /// 节点地址控制器
   late TextEditingController _addressController;
+
+  /// 节点端口控制器
   late TextEditingController _portController;
+
+  /// 当前选中的代理协议
   ProxyProtocol _selectedProtocol = ProxyProtocol.vmess;
 
+  /// 协议扩展字段的控制器映射（如 uuid、password、sni 等）
   final Map<String, TextEditingController> _extraControllers = {};
 
   @override
@@ -47,6 +67,7 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
     _ensureExtraControllers();
   }
 
+  /// 确保当前协议所需的扩展字段控制器都已创建
   void _ensureExtraControllers() {
     final requiredFields = _getRequiredFields(_selectedProtocol);
     for (final field in requiredFields) {
@@ -57,6 +78,9 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
     }
   }
 
+  /// 获取指定协议所需的扩展字段列表
+  ///
+  /// [protocol] 代理协议类型
   List<String> _getRequiredFields(ProxyProtocol protocol) {
     switch (protocol) {
       case ProxyProtocol.vmess:
@@ -80,6 +104,9 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
     }
   }
 
+  /// 获取扩展字段的中文标签
+  ///
+  /// [key] 字段键名
   String _getFieldLabel(String key) {
     const labels = {
       'uuid': 'UUID',
@@ -116,6 +143,9 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
     super.dispose();
   }
 
+  /// 保存节点配置
+  ///
+  /// 验证表单后构建 NodeConfig 对象，调用 [onSave] 回调并返回上一页
   void _save() {
     if (!_formKey.currentState!.validate()) return;
 

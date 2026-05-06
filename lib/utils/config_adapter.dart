@@ -14,6 +14,7 @@ import '../models/singbox_config.dart';
 /// - 将 NodeConfig 转换为各内核的出站代理格式
 /// - 支持 9 种代理协议：VMess / VLESS / Trojan / Shadowsocks / Hysteria / Hysteria2 / TUIC / Naive / WireGuard
 class ConfigAdapter {
+  /// 私有构造函数，防止外部实例化
   ConfigAdapter._();
 
   /// 构建 DNS 配置
@@ -23,6 +24,8 @@ class ConfigAdapter {
   /// - custom：自定义 DNS 服务器列表
   /// - doh：DNS-over-HTTPS
   /// - dot：DNS-over-TLS
+  ///
+  /// [proxyConfig] 代理配置，包含 DNS 模式和服务器信息
   static Map<String, dynamic> _buildDnsConfig(ProxyConfig proxyConfig) {
     final dns = proxyConfig.dnsConfig;
     if (dns.mode == DnsMode.system) return {};
@@ -75,6 +78,10 @@ class ConfigAdapter {
   /// - route：路由规则（广告屏蔽 + 用户自定义规则）
   /// - experimental：Clash API + TUN 配置
   /// - dns：DNS 服务器配置
+  ///
+  /// [proxyConfig] 代理配置（端口、TUN、DNS、广告屏蔽等）
+  /// [activeNode] 当前活跃节点，为 null 时无代理出站
+  /// [routingRules] 路由规则列表
   static Map<String, dynamic> toSingboxConfig(
     ProxyConfig proxyConfig,
     NodeConfig? activeNode,
@@ -192,74 +199,166 @@ class ConfigAdapter {
   ///
   /// 支持 9 种协议：VMess / VLESS / Trojan / Shadowsocks /
   /// Hysteria / Hysteria2 / TUIC / Naive / WireGuard
+  ///
+  /// [node] 节点配置，包含协议、地址、端口和协议特定参数
   static SingboxOutbound _nodeToSingboxOutbound(NodeConfig node) {
     final extra = Map<String, dynamic>.from(node.extra);
 
     switch (node.protocol) {
       case ProxyProtocol.vmess:
+        final vmessOpts = <String, dynamic>{
+          'server': node.address,
+          'server_port': node.port,
+          'uuid': extra['uuid'] ?? '',
+          'alter_id': extra['alterId'] ?? 0,
+          'security': extra['security'] ?? 'auto',
+        };
+
+        // TLS 配置
+        if (extra['tls'] == true) {
+          vmessOpts['tls'] = {
+            'enabled': true,
+            'server_name': extra['sni'] ?? node.address,
+            'insecure': extra['allowInsecure'] == true,
+            if (extra['alpn'] != null)
+              'alpn': (extra['alpn'] as String).split(','),
+            if (extra['fingerprint'] != null)
+              'utls': {'enabled': true, 'fingerprint': extra['fingerprint']},
+          };
+        }
+
+        // 传输层配置
+        final network = extra['network'] ?? 'tcp';
+        if (network == 'ws') {
+          vmessOpts['transport'] = {
+            'type': 'ws',
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        } else if (network == 'grpc') {
+          vmessOpts['transport'] = {
+            'type': 'grpc',
+            if (extra['grpcServiceName'] != null)
+              'service_name': extra['grpcServiceName'],
+          };
+        } else if (network == 'http') {
+          vmessOpts['transport'] = {
+            'type': 'http',
+            if (extra['wsPath'] != null) 'path': extra['wsPath'],
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
         return SingboxOutbound(
           type: 'vmess',
           tag: 'proxy',
-          options: {
-            'server': node.address,
-            'server_port': node.port,
-            'uuid': extra['uuid'] ?? '',
-            'alter_id': extra['alterId'] ?? 0,
-            'security': extra['security'] ?? 'auto',
-            if (extra['network'] == 'ws')
-              'transport': {
-                'type': 'ws',
-                'path': extra['wsPath'] ?? '/',
-                if (extra['wsHost'] != null)
-                  'headers': {'Host': extra['wsHost']},
-              },
-          },
+          options: vmessOpts,
         );
 
       case ProxyProtocol.vless:
+        final vlessOpts = <String, dynamic>{
+          'server': node.address,
+          'server_port': node.port,
+          'uuid': extra['uuid'] ?? '',
+        };
+
+        // Flow (xtls-rprx-vision 等)
+        if (extra['flow'] != null && (extra['flow'] as String).isNotEmpty) {
+          vlessOpts['flow'] = extra['flow'];
+        }
+
+        // TLS 配置
+        final security = extra['security'] ?? 'none';
+        if (security == 'tls' || security == 'reality') {
+          vlessOpts['tls'] = {
+            'enabled': true,
+            'server_name': extra['sni'] ?? node.address,
+            'insecure': extra['allowInsecure'] == true,
+            if (extra['alpn'] != null)
+              'alpn': (extra['alpn'] as String).split(','),
+            if (extra['fingerprint'] != null)
+              'utls': {'enabled': true, 'fingerprint': extra['fingerprint']},
+          };
+
+          // Reality 配置
+          if (security == 'reality') {
+            (vlessOpts['tls'] as Map<String, dynamic>)['reality'] = {
+              'enabled': true,
+              'public_key': extra['realityPublicKey'] ?? extra['publicKey'] ?? '',
+              'short_id': extra['realityShortId'] ?? extra['shortId'] ?? '',
+            };
+          }
+        }
+
+        // 传输层配置
+        final transportType = extra['type'] ?? 'tcp';
+        if (transportType == 'ws') {
+          vlessOpts['transport'] = {
+            'type': 'ws',
+            'path': extra['wsPath'] ?? extra['path'] ?? '/',
+            if (extra['wsHost'] != null || extra['host'] != null)
+              'headers': {'Host': extra['wsHost'] ?? extra['host']},
+          };
+        } else if (transportType == 'grpc') {
+          vlessOpts['transport'] = {
+            'type': 'grpc',
+            if (extra['grpcServiceName'] != null || extra['serviceName'] != null)
+              'service_name': extra['grpcServiceName'] ?? extra['serviceName'],
+          };
+        } else if (transportType == 'http') {
+          vlessOpts['transport'] = {
+            'type': 'http',
+            if (extra['wsPath'] != null) 'path': extra['wsPath'],
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
         return SingboxOutbound(
           type: 'vless',
           tag: 'proxy',
-          options: {
-            'server': node.address,
-            'server_port': node.port,
-            'uuid': extra['uuid'] ?? '',
-            'flow': extra['flow'] ?? '',
-            'tls': {
-              'enabled':
-                  extra['security'] == 'tls' || extra['security'] == 'reality',
-              'server_name': extra['sni'] ?? node.address,
-              'insecure': extra['insecure'] == true,
-              if (extra['security'] == 'reality') ...{
-                'reality': {
-                  'enabled': true,
-                  'public_key': extra['publicKey'] ?? '',
-                  'short_id': extra['shortId'] ?? '',
-                },
-              },
-            },
-            if (extra['type'] == 'ws')
-              'transport': {
-                'type': 'ws',
-                'path': extra['wsPath'] ?? '/',
-              },
-          },
+          options: vlessOpts,
         );
 
       case ProxyProtocol.trojan:
+        final trojanOpts = <String, dynamic>{
+          'server': node.address,
+          'server_port': node.port,
+          'password': extra['password'] ?? '',
+          'tls': {
+            'enabled': true,
+            'server_name': extra['sni'] ?? node.address,
+            'insecure': extra['allowInsecure'] == true,
+            if (extra['alpn'] != null)
+              'alpn': (extra['alpn'] as String).split(','),
+            if (extra['fingerprint'] != null)
+              'utls': {'enabled': true, 'fingerprint': extra['fingerprint']},
+          },
+        };
+
+        // 传输层配置
+        final transportType = extra['type'] ?? 'tcp';
+        if (transportType == 'ws') {
+          trojanOpts['transport'] = {
+            'type': 'ws',
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        } else if (transportType == 'grpc') {
+          trojanOpts['transport'] = {
+            'type': 'grpc',
+            if (extra['grpcServiceName'] != null)
+              'service_name': extra['grpcServiceName'],
+          };
+        }
+
         return SingboxOutbound(
           type: 'trojan',
           tag: 'proxy',
-          options: {
-            'server': node.address,
-            'server_port': node.port,
-            'password': extra['password'] ?? '',
-            'tls': {
-              'enabled': true,
-              'server_name': extra['sni'] ?? node.address,
-              'insecure': extra['insecure'] == true,
-            },
-          },
+          options: trojanOpts,
         );
 
       case ProxyProtocol.shadowsocks:
@@ -367,6 +466,10 @@ class ConfigAdapter {
   /// - proxy-groups：代理组（PROXY 选择组）
   /// - rules：路由规则（广告屏蔽 + 用户自定义规则 + MATCH 兜底）
   /// - dns：DNS 配置（fake-ip 模式）
+  ///
+  /// [proxyConfig] 代理配置（端口、TUN、DNS、广告屏蔽等）
+  /// [activeNode] 当前活跃节点，为 null 时无代理节点
+  /// [routingRules] 路由规则列表
   static Map<String, dynamic> toMihomoConfig(
     ProxyConfig proxyConfig,
     NodeConfig? activeNode,
@@ -454,12 +557,14 @@ class ConfigAdapter {
   ///
   /// 支持 VMess / VLESS / Trojan / Shadowsocks / Hysteria2
   /// 其他协议降级为 socks5
+  ///
+  /// [node] 节点配置，包含协议、地址、端口和协议特定参数
   static Map<String, dynamic> _nodeToMihomoProxy(NodeConfig node) {
     final extra = Map<String, dynamic>.from(node.extra);
 
     switch (node.protocol) {
       case ProxyProtocol.vmess:
-        return {
+        final vmessProxy = <String, dynamic>{
           'name': node.name,
           'type': 'vmess',
           'server': node.address,
@@ -469,20 +574,85 @@ class ConfigAdapter {
           'cipher': extra['security'] ?? 'auto',
           'network': extra['network'] ?? 'tcp',
         };
+
+        // TLS 配置
+        if (extra['tls'] == true) {
+          vmessProxy['tls'] = true;
+          if (extra['sni'] != null) vmessProxy['servername'] = extra['sni'];
+          if (extra['allowInsecure'] == true) {
+            vmessProxy['skip-cert-verify'] = true;
+          }
+        }
+
+        // WebSocket 传输
+        if (extra['network'] == 'ws') {
+          vmessProxy['ws-opts'] = {
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
+        // gRPC 传输
+        if (extra['network'] == 'grpc') {
+          vmessProxy['grpc-opts'] = {
+            'grpc-service-name': extra['grpcServiceName'] ?? '',
+          };
+        }
+
+        return vmessProxy;
       case ProxyProtocol.vless:
-        return {
+        final vlessProxy = <String, dynamic>{
           'name': node.name,
           'type': 'vless',
           'server': node.address,
           'port': node.port,
           'uuid': extra['uuid'] ?? '',
-          'flow': extra['flow'] ?? '',
-          'network': extra['type'] ?? 'tcp',
-          'tls': true,
-          'servername': extra['sni'] ?? node.address,
+          'network': extra['type'] ?? extra['network'] ?? 'tcp',
         };
+
+        // Flow
+        if (extra['flow'] != null && (extra['flow'] as String).isNotEmpty) {
+          vlessProxy['flow'] = extra['flow'];
+        }
+
+        // TLS 配置
+        final security = extra['security'] ?? 'none';
+        if (security == 'tls' || security == 'reality') {
+          vlessProxy['tls'] = true;
+          vlessProxy['servername'] = extra['sni'] ?? node.address;
+          if (extra['allowInsecure'] == true) {
+            vlessProxy['skip-cert-verify'] = true;
+          }
+        }
+
+        // Reality 配置
+        if (security == 'reality') {
+          vlessProxy['reality-opts'] = {
+            'public-key': extra['realityPublicKey'] ?? extra['publicKey'] ?? '',
+            'short-id': extra['realityShortId'] ?? extra['shortId'] ?? '',
+          };
+        }
+
+        // WebSocket 传输
+        if ((extra['type'] ?? 'tcp') == 'ws') {
+          vlessProxy['ws-opts'] = {
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
+        // gRPC 传输
+        if ((extra['type'] ?? 'tcp') == 'grpc') {
+          vlessProxy['grpc-opts'] = {
+            'grpc-service-name': extra['grpcServiceName'] ?? '',
+          };
+        }
+
+        return vlessProxy;
       case ProxyProtocol.trojan:
-        return {
+        final trojanProxy = <String, dynamic>{
           'name': node.name,
           'type': 'trojan',
           'server': node.address,
@@ -490,6 +660,30 @@ class ConfigAdapter {
           'password': extra['password'] ?? '',
           'sni': extra['sni'] ?? node.address,
         };
+
+        if (extra['allowInsecure'] == true) {
+          trojanProxy['skip-cert-verify'] = true;
+        }
+
+        // WebSocket 传输
+        if ((extra['type'] ?? 'tcp') == 'ws') {
+          trojanProxy['network'] = 'ws';
+          trojanProxy['ws-opts'] = {
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
+        // gRPC 传输
+        if ((extra['type'] ?? 'tcp') == 'grpc') {
+          trojanProxy['network'] = 'grpc';
+          trojanProxy['grpc-opts'] = {
+            'grpc-service-name': extra['grpcServiceName'] ?? '',
+          };
+        }
+
+        return trojanProxy;
       case ProxyProtocol.shadowsocks:
         return {
           'name': node.name,
@@ -505,6 +699,25 @@ class ConfigAdapter {
           'type': 'hysteria2',
           'server': node.address,
           'port': node.port,
+          'password': extra['password'] ?? '',
+          'sni': extra['sni'] ?? node.address,
+        };
+      case ProxyProtocol.hysteria:
+        return {
+          'name': node.name,
+          'type': 'hysteria',
+          'server': node.address,
+          'port': node.port,
+          'auth': extra['auth'] ?? extra['password'] ?? '',
+          'sni': extra['sni'] ?? node.address,
+        };
+      case ProxyProtocol.tuic:
+        return {
+          'name': node.name,
+          'type': 'tuic',
+          'server': node.address,
+          'port': node.port,
+          'uuid': extra['uuid'] ?? '',
           'password': extra['password'] ?? '',
           'sni': extra['sni'] ?? node.address,
         };
@@ -525,6 +738,10 @@ class ConfigAdapter {
   /// - outbounds：代理出站 + direct + block
   /// - routing：路由规则（广告屏蔽 + 用户自定义规则）
   /// - dns：DNS 服务器配置
+  ///
+  /// [proxyConfig] 代理配置（端口、TUN、DNS、广告屏蔽等）
+  /// [activeNode] 当前活跃节点，为 null 时无代理出站
+  /// [routingRules] 路由规则列表
   static Map<String, dynamic> toV2rayConfig(
     ProxyConfig proxyConfig,
     NodeConfig? activeNode,
@@ -672,11 +889,46 @@ class ConfigAdapter {
   ///
   /// 支持 VMess / VLESS / Trojan / Shadowsocks
   /// 其他协议降级为 socks
+  ///
+  /// [node] 节点配置，包含协议、地址、端口和协议特定参数
   static Map<String, dynamic> _nodeToV2rayOutbound(NodeConfig node) {
     final extra = Map<String, dynamic>.from(node.extra);
 
     switch (node.protocol) {
       case ProxyProtocol.vmess:
+        final vmessStreamSettings = <String, dynamic>{
+          'network': extra['network'] ?? 'tcp',
+          'security': extra['tls'] == true ? 'tls' : 'none',
+        };
+
+        // TLS 配置
+        if (extra['tls'] == true) {
+          vmessStreamSettings['tlsSettings'] = {
+            'serverName': extra['sni'] ?? node.address,
+            'allowInsecure': extra['allowInsecure'] == true,
+            if (extra['alpn'] != null)
+              'alpn': (extra['alpn'] as String).split(','),
+            if (extra['fingerprint'] != null)
+              'fingerprint': extra['fingerprint'],
+          };
+        }
+
+        // WebSocket 传输
+        if ((extra['network'] ?? 'tcp') == 'ws') {
+          vmessStreamSettings['wsSettings'] = {
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
+        // gRPC 传输
+        if ((extra['network'] ?? 'tcp') == 'grpc') {
+          vmessStreamSettings['grpcSettings'] = {
+            'serviceName': extra['grpcServiceName'] ?? '',
+          };
+        }
+
         return {
           'tag': 'proxy',
           'protocol': 'vmess',
@@ -695,8 +947,52 @@ class ConfigAdapter {
               },
             ],
           },
+          'streamSettings': vmessStreamSettings,
         };
       case ProxyProtocol.vless:
+        final vlessStreamSettings = <String, dynamic>{
+          'network': extra['type'] ?? 'tcp',
+          'security': extra['security'] ?? 'none',
+        };
+
+        // TLS 配置
+        if (extra['security'] == 'tls') {
+          vlessStreamSettings['tlsSettings'] = {
+            'serverName': extra['sni'] ?? node.address,
+            'allowInsecure': extra['allowInsecure'] == true,
+            if (extra['alpn'] != null)
+              'alpn': (extra['alpn'] as String).split(','),
+            if (extra['fingerprint'] != null)
+              'fingerprint': extra['fingerprint'],
+          };
+        }
+
+        // Reality 配置
+        if (extra['security'] == 'reality') {
+          vlessStreamSettings['realitySettings'] = {
+            'serverName': extra['sni'] ?? node.address,
+            'publicKey': extra['realityPublicKey'] ?? extra['publicKey'] ?? '',
+            'shortId': extra['realityShortId'] ?? extra['shortId'] ?? '',
+            'fingerprint': extra['fingerprint'] ?? 'chrome',
+          };
+        }
+
+        // WebSocket 传输
+        if ((extra['type'] ?? 'tcp') == 'ws') {
+          vlessStreamSettings['wsSettings'] = {
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
+        // gRPC 传输
+        if ((extra['type'] ?? 'tcp') == 'grpc') {
+          vlessStreamSettings['grpcSettings'] = {
+            'serviceName': extra['grpcServiceName'] ?? '',
+          };
+        }
+
         return {
           'tag': 'proxy',
           'protocol': 'vless',
@@ -715,16 +1011,38 @@ class ConfigAdapter {
               },
             ],
           },
-          'streamSettings': {
-            'network': extra['type'] ?? 'tcp',
-            'security': extra['security'] ?? 'none',
-            if (extra['sni'] != null)
-              'tlsSettings': {
-                'serverName': extra['sni'],
-              },
-          },
+          'streamSettings': vlessStreamSettings,
         };
       case ProxyProtocol.trojan:
+        final trojanStreamSettings = <String, dynamic>{
+          'network': extra['type'] ?? 'tcp',
+          'security': 'tls',
+          'tlsSettings': {
+            'serverName': extra['sni'] ?? node.address,
+            'allowInsecure': extra['allowInsecure'] == true,
+            if (extra['alpn'] != null)
+              'alpn': (extra['alpn'] as String).split(','),
+            if (extra['fingerprint'] != null)
+              'fingerprint': extra['fingerprint'],
+          },
+        };
+
+        // WebSocket 传输
+        if ((extra['type'] ?? 'tcp') == 'ws') {
+          trojanStreamSettings['wsSettings'] = {
+            'path': extra['wsPath'] ?? '/',
+            if (extra['wsHost'] != null)
+              'headers': {'Host': extra['wsHost']},
+          };
+        }
+
+        // gRPC 传输
+        if ((extra['type'] ?? 'tcp') == 'grpc') {
+          trojanStreamSettings['grpcSettings'] = {
+            'serviceName': extra['grpcServiceName'] ?? '',
+          };
+        }
+
         return {
           'tag': 'proxy',
           'protocol': 'trojan',
@@ -737,6 +1055,7 @@ class ConfigAdapter {
               },
             ],
           },
+          'streamSettings': trojanStreamSettings,
         };
       case ProxyProtocol.shadowsocks:
         return {

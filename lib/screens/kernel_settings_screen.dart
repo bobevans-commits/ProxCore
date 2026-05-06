@@ -6,6 +6,10 @@ import '../models/kernel_info.dart';
 import '../services/kernel_manager.dart';
 import '../services/proxy_service.dart';
 
+/// KernelSettingsScreen - 内核管理页面
+///
+/// 展示所有可用内核（sing-box、mihomo、v2ray）的安装状态，
+/// 支持下载、安装、删除、更新和切换内核
 class KernelSettingsScreen extends StatefulWidget {
   const KernelSettingsScreen({super.key});
 
@@ -13,6 +17,7 @@ class KernelSettingsScreen extends StatefulWidget {
   State<KernelSettingsScreen> createState() => _KernelSettingsScreenState();
 }
 
+/// _KernelSettingsScreenState - KernelSettingsScreen 的状态类
 class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
   @override
   Widget build(BuildContext context) {
@@ -147,6 +152,9 @@ class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
     );
   }
 
+  /// 下载指定类型的内核
+  ///
+  /// [manager] 内核管理器，[type] 内核类型，[version] 可选的指定版本号
   Future<void> _downloadKernel(
     KernelManager manager,
     KernelType type, {
@@ -168,6 +176,10 @@ class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
     }
   }
 
+  /// 显示版本选择对话框
+  ///
+  /// [manager] 内核管理器，[type] 内核类型
+  /// 先从 GitHub 获取版本列表，再弹出选择对话框
   Future<void> _showVersionPicker(
     KernelManager manager,
     KernelType type,
@@ -216,6 +228,10 @@ class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
     }
   }
 
+  /// 删除指定类型的内核
+  ///
+  /// [manager] 内核管理器，[type] 内核类型
+  /// 删除前弹出确认对话框
   Future<void> _deleteKernel(KernelManager manager, KernelType type) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -246,6 +262,10 @@ class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
     }
   }
 
+  /// 检查指定类型内核的更新
+  ///
+  /// [manager] 内核管理器，[type] 内核类型
+  /// 对比当前版本和最新版本，提示用户是否更新
   Future<void> _checkUpdate(KernelManager manager, KernelType type) async {
     ScaffoldMessenger.of(
       context,
@@ -284,9 +304,18 @@ class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
   }
 }
 
+/// _VersionPickerDialog - 版本选择对话框
+///
+/// 展示指定内核的所有 GitHub Release 版本列表，
+/// 支持选择并返回选中的版本号
 class _VersionPickerDialog extends StatelessWidget {
+  /// 内核类型
   final KernelType type;
+
+  /// 版本发布信息列表
   final List<KernelReleaseInfo> releases;
+
+  /// 当前已安装的版本号，可能为 null
   final String? currentVersion;
 
   const _VersionPickerDialog({
@@ -295,6 +324,7 @@ class _VersionPickerDialog extends StatelessWidget {
     this.currentVersion,
   });
 
+  /// 将 ISO 日期字符串格式化为 YYYY-MM-DD 格式
   String _formatDate(String isoDate) {
     try {
       final dt = DateTime.parse(isoDate).toLocal();
@@ -405,17 +435,42 @@ class _VersionPickerDialog extends StatelessWidget {
   }
 }
 
+/// _KernelCard - 内核信息卡片
+///
+/// 展示单个内核的类型、状态、版本信息，
+/// 提供安装、更新、删除、切换等操作按钮
 class _KernelCard extends StatelessWidget {
+  /// 内核类型
   final KernelType type;
+
+  /// 内核当前状态
   final KernelStatus status;
+
+  /// 已安装的版本号，可能为 null
   final String? version;
+
+  /// 是否已安装
   final bool isInstalled;
+
+  /// 是否为当前激活的内核
   final bool isActive;
+
+  /// 下载进度（0.0 ~ 1.0），null 表示不确定进度
   final double? downloadProgress;
+
+  /// 安装最新版回调
   final VoidCallback onDownload;
+
+  /// 选择版本安装回调
   final VoidCallback onDownloadVersion;
+
+  /// 删除内核回调
   final VoidCallback onDelete;
+
+  /// 检查更新回调
   final VoidCallback onCheckUpdate;
+
+  /// 设为当前内核回调，null 表示不可操作
   final VoidCallback? onSetActive;
 
   const _KernelCard({
@@ -432,6 +487,7 @@ class _KernelCard extends StatelessWidget {
     this.onSetActive,
   });
 
+  /// 根据内核状态返回对应的颜色
   Color _statusColor(BuildContext context) {
     final theme = Theme.of(context);
     switch (status) {
@@ -449,6 +505,7 @@ class _KernelCard extends StatelessWidget {
     }
   }
 
+  /// 根据内核类型返回对应的图标
   IconData _kernelIcon() {
     switch (type) {
       case KernelType.singbox:
@@ -460,6 +517,7 @@ class _KernelCard extends StatelessWidget {
     }
   }
 
+  /// 根据内核类型返回描述文本
   String _kernelDescription() {
     switch (type) {
       case KernelType.singbox:

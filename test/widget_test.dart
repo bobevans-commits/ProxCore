@@ -278,6 +278,31 @@ void main() {
         expect(AppUtils.protocolIcon(protocol), isNotEmpty);
       }
     });
+
+    test('latencyLabel formats correctly', () {
+      expect(AppUtils.latencyLabel(-1), '超时');
+      expect(AppUtils.latencyLabel(0), '0 ms');
+      expect(AppUtils.latencyLabel(50), '50 ms');
+      expect(AppUtils.latencyLabel(200), '200 ms');
+      expect(AppUtils.latencyLabel(1000), '1000 ms');
+    });
+
+    test('detectProtocol returns correct type', () {
+      expect(AppUtils.detectProtocol('vmess://abc'), ProxyProtocol.vmess);
+      expect(AppUtils.detectProtocol('vless://abc'), ProxyProtocol.vless);
+      expect(AppUtils.detectProtocol('trojan://abc'), ProxyProtocol.trojan);
+      expect(AppUtils.detectProtocol('ss://abc'), ProxyProtocol.shadowsocks);
+      expect(AppUtils.detectProtocol('hysteria2://abc'), ProxyProtocol.hysteria2);
+      expect(AppUtils.detectProtocol('hy2://abc'), ProxyProtocol.hysteria2);
+      expect(AppUtils.detectProtocol('hysteria://abc'), ProxyProtocol.hysteria);
+      expect(AppUtils.detectProtocol('tuic://abc'), ProxyProtocol.tuic);
+      expect(AppUtils.detectProtocol('unknown://abc'), isNull);
+      expect(AppUtils.detectProtocol(''), isNull);
+    });
+
+    test('parseProxyLink throws for unknown protocol', () {
+      expect(() => AppUtils.parseProxyLink('unknown://abc'), throwsFormatException);
+    });
   });
 
   group('ConfigAdapter', () {
