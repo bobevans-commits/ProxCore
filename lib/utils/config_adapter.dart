@@ -14,6 +14,7 @@ import '../models/singbox_config.dart';
 /// - 将 NodeConfig 转换为各内核的出站代理格式
 /// - 支持 9 种代理协议：VMess / VLESS / Trojan / Shadowsocks / Hysteria / Hysteria2 / TUIC / Naive / WireGuard
 class ConfigAdapter {
+  /// 私有构造函数，防止外部实例化
   ConfigAdapter._();
 
   /// 构建 DNS 配置
@@ -23,6 +24,8 @@ class ConfigAdapter {
   /// - custom：自定义 DNS 服务器列表
   /// - doh：DNS-over-HTTPS
   /// - dot：DNS-over-TLS
+  ///
+  /// [proxyConfig] 代理配置，包含 DNS 模式和服务器信息
   static Map<String, dynamic> _buildDnsConfig(ProxyConfig proxyConfig) {
     final dns = proxyConfig.dnsConfig;
     if (dns.mode == DnsMode.system) return {};
@@ -75,6 +78,10 @@ class ConfigAdapter {
   /// - route：路由规则（广告屏蔽 + 用户自定义规则）
   /// - experimental：Clash API + TUN 配置
   /// - dns：DNS 服务器配置
+  ///
+  /// [proxyConfig] 代理配置（端口、TUN、DNS、广告屏蔽等）
+  /// [activeNode] 当前活跃节点，为 null 时无代理出站
+  /// [routingRules] 路由规则列表
   static Map<String, dynamic> toSingboxConfig(
     ProxyConfig proxyConfig,
     NodeConfig? activeNode,
@@ -192,6 +199,8 @@ class ConfigAdapter {
   ///
   /// 支持 9 种协议：VMess / VLESS / Trojan / Shadowsocks /
   /// Hysteria / Hysteria2 / TUIC / Naive / WireGuard
+  ///
+  /// [node] 节点配置，包含协议、地址、端口和协议特定参数
   static SingboxOutbound _nodeToSingboxOutbound(NodeConfig node) {
     final extra = Map<String, dynamic>.from(node.extra);
 
@@ -367,6 +376,10 @@ class ConfigAdapter {
   /// - proxy-groups：代理组（PROXY 选择组）
   /// - rules：路由规则（广告屏蔽 + 用户自定义规则 + MATCH 兜底）
   /// - dns：DNS 配置（fake-ip 模式）
+  ///
+  /// [proxyConfig] 代理配置（端口、TUN、DNS、广告屏蔽等）
+  /// [activeNode] 当前活跃节点，为 null 时无代理节点
+  /// [routingRules] 路由规则列表
   static Map<String, dynamic> toMihomoConfig(
     ProxyConfig proxyConfig,
     NodeConfig? activeNode,
@@ -454,6 +467,8 @@ class ConfigAdapter {
   ///
   /// 支持 VMess / VLESS / Trojan / Shadowsocks / Hysteria2
   /// 其他协议降级为 socks5
+  ///
+  /// [node] 节点配置，包含协议、地址、端口和协议特定参数
   static Map<String, dynamic> _nodeToMihomoProxy(NodeConfig node) {
     final extra = Map<String, dynamic>.from(node.extra);
 
@@ -508,6 +523,25 @@ class ConfigAdapter {
           'password': extra['password'] ?? '',
           'sni': extra['sni'] ?? node.address,
         };
+      case ProxyProtocol.hysteria:
+        return {
+          'name': node.name,
+          'type': 'hysteria',
+          'server': node.address,
+          'port': node.port,
+          'auth': extra['auth'] ?? extra['password'] ?? '',
+          'sni': extra['sni'] ?? node.address,
+        };
+      case ProxyProtocol.tuic:
+        return {
+          'name': node.name,
+          'type': 'tuic',
+          'server': node.address,
+          'port': node.port,
+          'uuid': extra['uuid'] ?? '',
+          'password': extra['password'] ?? '',
+          'sni': extra['sni'] ?? node.address,
+        };
       default:
         return {
           'name': node.name,
@@ -525,6 +559,10 @@ class ConfigAdapter {
   /// - outbounds：代理出站 + direct + block
   /// - routing：路由规则（广告屏蔽 + 用户自定义规则）
   /// - dns：DNS 服务器配置
+  ///
+  /// [proxyConfig] 代理配置（端口、TUN、DNS、广告屏蔽等）
+  /// [activeNode] 当前活跃节点，为 null 时无代理出站
+  /// [routingRules] 路由规则列表
   static Map<String, dynamic> toV2rayConfig(
     ProxyConfig proxyConfig,
     NodeConfig? activeNode,
@@ -672,6 +710,8 @@ class ConfigAdapter {
   ///
   /// 支持 VMess / VLESS / Trojan / Shadowsocks
   /// 其他协议降级为 socks
+  ///
+  /// [node] 节点配置，包含协议、地址、端口和协议特定参数
   static Map<String, dynamic> _nodeToV2rayOutbound(NodeConfig node) {
     final extra = Map<String, dynamic>.from(node.extra);
 

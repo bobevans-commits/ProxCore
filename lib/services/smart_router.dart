@@ -33,6 +33,15 @@ class NodeScore {
   /// 综合评分（0~100），由 _calculateScore 计算
   final double score;
 
+  /// 构造节点评分数据
+  ///
+  /// [nodeId] 节点唯一标识
+  /// [successfulConnects] 成功连接次数，默认 0
+  /// [failedConnects] 失败连接次数，默认 0
+  /// [avgLatencyMs] 平均延迟（毫秒），默认 0
+  /// [avgDownloadSpeed] 平均下载速度（字节/秒），默认 0
+  /// [lastUsed] 最后使用时间
+  /// [score] 综合评分（0~100）
   const NodeScore({
     required this.nodeId,
     this.successfulConnects = 0,
@@ -49,6 +58,7 @@ class NodeScore {
           ? successfulConnects / (successfulConnects + failedConnects)
           : 0;
 
+  /// 创建节点评分的副本，可选择性更新部分字段
   NodeScore copyWith({
     int? successfulConnects,
     int? failedConnects,

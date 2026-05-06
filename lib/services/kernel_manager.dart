@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/config.dart';
 import '../models/kernel_info.dart';
+import '../utils/app_utils.dart';
 
 /// 内核管理器 — 管理代理内核的安装、下载、版本和生命周期
 ///
@@ -127,8 +128,9 @@ class KernelManager extends ChangeNotifier {
   /// 调用 https://api.github.com/repos/{repo}/releases/latest
   /// 返回 tag_name（去掉 'v' 前缀），如 "1.8.0"
   Future<String> getLatestVersion(KernelType type) async {
+    HttpClient? client;
     try {
-      final client = HttpClient();
+      client = HttpClient();
       final url = Uri.parse(
         'https://api.github.com/repos/${type.repo}/releases/latest',
       );
@@ -145,6 +147,8 @@ class KernelManager extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to fetch version: $e';
       return '';
+    } finally {
+      client?.close();
     }
   }
 
@@ -153,8 +157,9 @@ class KernelManager extends ChangeNotifier {
   /// [count] 获取的发布数量，默认20条
   /// 返回包含标签、名称、发布时间、下载资源等信息的列表
   Future<List<KernelReleaseInfo>> getReleaseList(KernelType type, {int count = 20}) async {
+    HttpClient? client;
     try {
-      final client = HttpClient();
+      client = HttpClient();
       final url = Uri.parse(
         'https://api.github.com/repos/${type.repo}/releases?per_page=$count',
       );
@@ -183,6 +188,8 @@ class KernelManager extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to fetch releases: $e';
       return [];
+    } finally {
+      client?.close();
     }
   }
 
@@ -227,6 +234,7 @@ class KernelManager extends ChangeNotifier {
       final response = await request.close();
 
       if (response.statusCode != 200) {
+        client.close();
         throw Exception('Download failed: HTTP ${response.statusCode}');
       }
 
@@ -248,6 +256,7 @@ class KernelManager extends ChangeNotifier {
         notifyListeners();
       }
       await sink.close();
+      client.close();
 
       _downloadProgress = null;
       _statusMap[type] = KernelStatus.installing;
@@ -267,6 +276,15 @@ class KernelManager extends ChangeNotifier {
       _downloadProgress = null;
       _statusMap[type] = KernelStatus.error;
       _error = 'Download failed: $e';
+      try {
+        final dir = await getKernelDir();
+        final files = await dir.list().toList();
+        for (final file in files) {
+          if (file is File && file.path.contains('_download')) {
+            await file.delete();
+          }
+        }
+      } catch (_) {}
     }
 
     notifyListeners();
@@ -388,37 +406,15 @@ class KernelManager extends ChangeNotifier {
 
   /// 获取当前平台标识字符串
   ///
-  /// 返回：windows / darwin / linux / android / unknown
+  /// 委托给 AppUtils.getPlatformName()
   String _getCurrentPlatform() {
-    if (Platform.isWindows) return 'windows';
-    if (Platform.isMacOS) return 'darwin';
-    if (Platform.isLinux) return 'linux';
-    if (Platform.isAndroid) return 'android';
-    return 'unknown';
+    return AppUtils.getPlatformName();
   }
 
   /// 获取当前 CPU 架构标识
   ///
-  /// 检测顺序：
-  /// 1. Dart VM 版本字符串中的 arm64/aarch64
-  /// 2. Windows PROCESSOR_ARCHITECTURE 环境变量
-  /// 3. macOS/Linux uname -m 命令输出
-  /// 默认返回 amd64
+  /// 委托给 AppUtils.getArchName()
   String _getCurrentArch() {
-    final version = Platform.version.toLowerCase();
-    if (version.contains('arm64') || version.contains('aarch64')) return 'arm64';
-    if (Platform.isWindows) {
-      final procArch =
-          Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() ?? '';
-      if (procArch.contains('ARM64')) return 'arm64';
-    }
-    if (Platform.isMacOS || Platform.isLinux) {
-      try {
-        final result = Process.runSync('uname', ['-m']);
-        final arch = result.stdout.toString().trim().toLowerCase();
-        if (arch.contains('arm64') || arch.contains('aarch64')) return 'arm64';
-      } catch (_) {}
-    }
-    return 'amd64';
+    return AppUtils.getArchName();
   }
 }

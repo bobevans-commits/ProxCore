@@ -20,6 +20,7 @@ enum KernelType {
   /// GitHub 仓库路径（用于下载和版本查询）
   final String repo;
 
+  /// 内核类型枚举构造函数
   const KernelType(this.label, this.repo);
 
   /// 根据名称字符串查找内核类型，默认返回 singbox
@@ -182,6 +183,7 @@ class NodeConfig {
     this.downloadSpeed,
   });
 
+  /// 创建节点配置副本，可选择性覆盖部分字段
   NodeConfig copyWith({
     String? id,
     String? name,
@@ -250,6 +252,7 @@ enum DnsMode {
   /// 模式显示名称
   final String label;
 
+  /// DNS 模式枚举构造函数
   const DnsMode(this.value, this.label);
 
   /// 根据字符串查找 DNS 模式，默认返回 system
@@ -292,6 +295,7 @@ class DnsConfig {
     this.dotServer = 'dns.google',
   });
 
+  /// 创建 DNS 配置副本，可选择性覆盖部分字段
   DnsConfig copyWith({
     DnsMode? mode,
     List<String>? servers,
@@ -396,6 +400,7 @@ class ProxyConfig {
     this.dnsConfig = const DnsConfig(),
   });
 
+  /// 创建代理配置副本，可选择性覆盖部分字段
   ProxyConfig copyWith({
     KernelType? kernelType,
     String? localAddress,
@@ -581,6 +586,7 @@ class RoutingRule {
     }
   }
 
+  /// 创建路由规则副本，可选择性覆盖部分字段
   RoutingRule copyWith({
     String? id,
     String? name,

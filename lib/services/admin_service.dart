@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 /// - 检测当前是否已拥有管理员权限
 /// - Linux 默认返回 true（需用户自行 sudo）
 class AdminService {
+/// 私有构造函数，禁止外部实例化
   AdminService._();
 
   /// 请求管理员权限

@@ -7,6 +7,10 @@ import '../services/proxy_service.dart';
 import '../services/subscription_service.dart';
 import '../utils/app_utils.dart';
 
+/// SubscriptionsScreen - 订阅管理页面
+///
+/// 管理代理订阅链接，支持添加、编辑、删除、刷新订阅，
+/// 以及批量导入节点
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
 
@@ -14,6 +18,7 @@ class SubscriptionsScreen extends StatefulWidget {
   State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
 }
 
+/// _SubscriptionsScreenState - SubscriptionsScreen 的状态类
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   @override
   Widget build(BuildContext context) {
@@ -123,6 +128,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  /// 显示添加订阅对话框
   void _showAddDialog(BuildContext context) {
     final nameController = TextEditingController();
     final urlController = TextEditingController();
@@ -194,6 +200,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  /// 显示编辑订阅对话框
+  ///
+  /// [sub] 待编辑的订阅信息
   void _showEditDialog(BuildContext context, SubscriptionInfo sub) {
     final nameController = TextEditingController(text: sub.name);
     final urlController = TextEditingController(text: sub.url);
@@ -244,6 +253,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  /// 确认删除订阅的对话框
+  ///
+  /// [sub] 待删除的订阅信息
   void _confirmDelete(BuildContext context, SubscriptionInfo sub) {
     showDialog(
       context: context,
@@ -269,8 +281,14 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   }
 }
 
+/// _SubscriptionSummary - 订阅概览卡片
+///
+/// 显示订阅数、节点数和全部刷新按钮
 class _SubscriptionSummary extends StatelessWidget {
+  /// 订阅数量
   final int subCount;
+
+  /// 节点数量
   final int nodeCount;
 
   const _SubscriptionSummary({
@@ -330,10 +348,20 @@ class _SubscriptionSummary extends StatelessWidget {
   }
 }
 
+/// _SummaryChip - 概览信息小标签
+///
+/// 显示图标、标签和数值的紧凑信息块
 class _SummaryChip extends StatelessWidget {
+  /// 图标
   final IconData icon;
+
+  /// 标签文本
   final String label;
+
+  /// 显示数值
   final String value;
+
+  /// 主题颜色
   final Color color;
 
   const _SummaryChip({
@@ -369,10 +397,20 @@ class _SummaryChip extends StatelessWidget {
   }
 }
 
+/// _SubscriptionTile - 订阅列表项
+///
+/// 显示单个订阅的名称、链接、更新时间和操作按钮
 class _SubscriptionTile extends StatelessWidget {
+  /// 订阅信息
   final SubscriptionInfo subscription;
+
+  /// 刷新回调
   final VoidCallback onRefresh;
+
+  /// 编辑回调
   final VoidCallback onEdit;
+
+  /// 删除回调
   final VoidCallback onDelete;
 
   const _SubscriptionTile({

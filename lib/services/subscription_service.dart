@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/config.dart';
+import '../utils/app_utils.dart';
 import 'config_storage_service.dart';
 
 /// 订阅管理服务 — 管理代理订阅源和节点解析
@@ -206,176 +207,15 @@ class SubscriptionService extends ChangeNotifier {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
 
-      if (trimmed.startsWith('vmess://')) {
-        final node = _parseVmess(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('vless://')) {
-        final node = _parseVless(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('trojan://')) {
-        final node = _parseTrojan(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('ss://')) {
-        final node = _parseShadowsocks(trimmed);
-        if (node != null) nodes.add(node);
-      } else if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) {
-        final node = _parseHysteria2(trimmed);
-        if (node != null) nodes.add(node);
+      try {
+        final node = AppUtils.parseProxyLink(trimmed);
+        nodes.add(node);
+      } catch (e) {
+        debugPrint('SubscriptionService: parse line error: $e');
       }
     }
 
     return nodes;
-  }
-
-  /// 解析 VMess 协议 URI
-  ///
-  /// 格式：vmess://{Base64编码的JSON}
-  /// JSON 字段：id(名称), add(地址), port(端口), id(UUID), aid(alterId), net(传输协议)
-  NodeConfig? _parseVmess(String uri) {
-    try {
-      final encoded = uri.replaceFirst('vmess://', '');
-      final decoded = utf8.decode(base64Decode(encoded));
-      final json = jsonDecode(decoded) as Map<String, dynamic>;
-      return NodeConfig(
-        id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: json['ps'] as String? ?? 'VMess',
-        protocol: ProxyProtocol.vmess,
-        address: json['add'] as String? ?? '',
-        port: int.tryParse(json['port']?.toString() ?? '0') ?? 0,
-        extra: {
-          'uuid': json['id'],
-          'alterId': json['aid'] ?? 0,
-          'security': json['net'] ?? 'tcp',
-          'network': json['net'] ?? 'tcp',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseVmess error: $e');
-      return null;
-    }
-  }
-
-  /// 解析 VLESS 协议 URI
-  ///
-  /// 格式：vless://{uuid}@{host}:{port}?{params}#{name}
-  /// 参数：flow, security, type, sni 等
-  NodeConfig? _parseVless(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      final params = parsed.queryParameters;
-      final name = params['name'] ?? parsed.fragment;
-      final effectiveName = name.isEmpty ? 'VLESS' : name;
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: effectiveName,
-        protocol: ProxyProtocol.vless,
-        address: parsed.host,
-        port: parsed.port,
-        extra: {
-          'uuid': parsed.userInfo,
-          'flow': params['flow'],
-          'security': params['security'] ?? 'none',
-          'type': params['type'] ?? 'tcp',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseVless error: $e');
-      return null;
-    }
-  }
-
-  /// 解析 Trojan 协议 URI
-  ///
-  /// 格式：trojan://{password}@{host}:{port}?{params}#{name}
-  /// 参数：sni, type 等
-  NodeConfig? _parseTrojan(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      final params = parsed.queryParameters;
-      final name = params['name'] ?? parsed.fragment;
-      final effectiveName = name.isEmpty ? 'Trojan' : name;
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: effectiveName,
-        protocol: ProxyProtocol.trojan,
-        address: parsed.host,
-        port: parsed.port,
-        extra: {
-          'password': parsed.userInfo,
-          'sni': params['sni'],
-          'type': params['type'] ?? 'tcp',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseTrojan error: $e');
-      return null;
-    }
-  }
-
-  /// 解析 Shadowsocks 协议 URI
-  ///
-  /// 格式：ss://{Base64(method:password)}@{host}:{port}#{name}
-  NodeConfig? _parseShadowsocks(String uri) {
-    try {
-      final content = uri.replaceFirst('ss://', '');
-      final hashIndex = content.indexOf('#');
-      final name = hashIndex >= 0 ? Uri.decodeComponent(content.substring(hashIndex + 1)) : 'Shadowsocks';
-      final body = hashIndex >= 0 ? content.substring(0, hashIndex) : content;
-
-      final atIndex = body.indexOf('@');
-      if (atIndex < 0) return null;
-
-      final methodAndPassword = utf8.decode(base64Decode(body.substring(0, atIndex)));
-      final colonIndex = methodAndPassword.indexOf(':');
-      final method = methodAndPassword.substring(0, colonIndex);
-      final password = methodAndPassword.substring(colonIndex + 1);
-
-      final serverPart = body.substring(atIndex + 1);
-      final colonPos = serverPart.lastIndexOf(':');
-
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        protocol: ProxyProtocol.shadowsocks,
-        address: serverPart.substring(0, colonPos),
-        port: int.parse(serverPart.substring(colonPos + 1)),
-        extra: {
-          'method': method,
-          'password': password,
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseShadowsocks error: $e');
-      return null;
-    }
-  }
-
-  /// 解析 Hysteria2 协议 URI
-  ///
-  /// 格式：hysteria2://{password}@{host}:{port}?{params}#{name}
-  /// 参数：sni, insecure 等
-  NodeConfig? _parseHysteria2(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      final params = parsed.queryParameters;
-      final name = params['name'] ?? parsed.fragment;
-      final effectiveName = name.isEmpty ? 'Hysteria2' : name;
-      return NodeConfig(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: effectiveName,
-        protocol: ProxyProtocol.hysteria2,
-        address: parsed.host,
-        port: parsed.port,
-        extra: {
-          'password': parsed.userInfo,
-          'sni': params['sni'],
-          'insecure': params['insecure'] == '1',
-        },
-      );
-    } catch (e) {
-      debugPrint('SubscriptionService: parseHysteria2 error: $e');
-      return null;
-    }
   }
 
   /// 持久化保存订阅列表

@@ -12,6 +12,7 @@ import 'dart:io';
 /// - Linux：生成 proxy_env.sh 环境变量脚本
 /// - 自动配置代理绕过列表（localhost、私有网络地址）
 class SystemProxyService {
+/// 私有构造函数，禁止外部实例化
   SystemProxyService._();
 
   /// 启用系统代理
@@ -52,6 +53,7 @@ class SystemProxyService {
   /// - ProxyOverride = 绕过列表（localhost、私有网络）
   static Future<void> _enableWindowsProxy(String host, int port) async {
     final proxyServer = '$host:$port';
+    const bypassList = 'localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>';
     await Process.run('reg', [
       'add',
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
@@ -73,7 +75,7 @@ class SystemProxyService {
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
       '/v', 'ProxyOverride',
       '/t', 'REG_SZ',
-      '/d', 'localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*',
+      '/d', bypassList,
       '/f',
     ]);
   }

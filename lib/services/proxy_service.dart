@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../models/config.dart';
+import '../utils/app_utils.dart';
 import '../utils/config_adapter.dart';
 import 'clash_api_service.dart';
 import 'config_storage_service.dart';
@@ -80,6 +81,9 @@ class ProxyService extends ChangeNotifier {
 
   /// 速度历史记录，保留最近60秒
   final List<SpeedRecord> _speedHistory = [];
+
+  /// 临时配置文件目录引用，用于 dispose 时清理
+  Directory? _configTempDir;
 
   // ---- 公开 Getter ----
 
@@ -394,35 +398,31 @@ class ProxyService extends ChangeNotifier {
         }
       });
 
-      // 等待2秒确认进程未立即退出（exitCode=-1 表示超时，即进程仍在运行）
-      final exitCode = await _process!.exitCode.timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => -1,
-      );
-
-      if (exitCode == -1) {
+      // 等待2秒确认进程未立即退出
+      // exitCode 是 Future<int>，timeout 抛出 TimeoutException 表示进程仍在运行
+      try {
+        final exitCode = await _process!.exitCode.timeout(
+          const Duration(seconds: 2),
+        );
+        // 进程在2秒内退出，启动失败
+        _addLog(
+          '[ProxyService] Process exited immediately with code $exitCode',
+        );
+        _state = ProxyState.stopped;
+        _activeNode = null;
+      } on TimeoutException {
         // 进程仍在运行，启动成功
         _state = ProxyState.running;
         _startedAt = DateTime.now();
         _crashCount = 0;
         _addLog('[ProxyService] Proxy started successfully');
         testLatency(node);
-        // 设置系统代理
         if (_config.systemProxy) {
           await _applySystemProxy();
         }
-        // 连接 ClashApi WebSocket 实时流量监听
         _clashApi?.configure(apiUrl: 'http://127.0.0.1:9090');
         _clashApi?.connect();
-        // 记录连接成功到 SmartRouter
         _smartRouter?.recordConnect(node, success: true);
-      } else {
-        // 进程立即退出，启动失败
-        _addLog(
-          '[ProxyService] Process exited immediately with code $exitCode',
-        );
-        _state = ProxyState.stopped;
-        _activeNode = null;
       }
     } catch (e) {
       _addLog('[ProxyService] Failed to start: $e');
@@ -524,9 +524,10 @@ class ProxyService extends ChangeNotifier {
 
   /// 测试节点下载速度（从 cachefly 下载1MB文件）
   Future<double> testDownloadSpeed(NodeConfig node) async {
+    HttpClient? client;
     try {
       final stopwatch = Stopwatch()..start();
-      final client = HttpClient();
+      client = HttpClient();
       final request = await client.getUrl(
         Uri.parse('https://cachefly.cachefly.net/1mb.test'),
       );
@@ -538,8 +539,6 @@ class ProxyService extends ChangeNotifier {
       }
       stopwatch.stop();
 
-      client.close();
-
       if (stopwatch.elapsedMilliseconds > 0) {
         final speed = (totalBytes * 1000) / stopwatch.elapsedMilliseconds;
         node.downloadSpeed = speed;
@@ -549,6 +548,8 @@ class ProxyService extends ChangeNotifier {
     } catch (e) {
       node.downloadSpeed = -1;
       notifyListeners();
+    } finally {
+      client?.close();
     }
     return -1;
   }
@@ -583,9 +584,10 @@ class ProxyService extends ChangeNotifier {
   ///
   /// 根据当前内核类型调用对应的 ConfigAdapter 方法
   /// 生成 JSON 格式配置并写入临时文件
+  /// 临时目录保存引用以便 dispose 时清理
   Future<String> _writeKernelConfig(NodeConfig node) async {
-    final dir = Directory.systemTemp.createTempSync('proxcore_config_');
-    final file = File('${dir.path}/config.json');
+    _configTempDir = Directory.systemTemp.createTempSync('proxcore_config_');
+    final file = File('${_configTempDir!.path}/config.json');
 
     Map<String, dynamic> configJson;
     switch (_config.kernelType) {
@@ -645,9 +647,13 @@ class ProxyService extends ChangeNotifier {
     _speedTimer?.cancel();
     _logController.close();
     _process?.kill();
-    // 释放时清理系统代理
+    // 清理临时配置文件目录
+    try {
+      _configTempDir?.deleteSync(recursive: true);
+    } catch (_) {}
+    // 释放时清理系统代理（fire-and-forget，dispose 中无法 await）
     if (_config.systemProxy) {
-      _removeSystemProxy();
+      SystemProxyService.disable();
     }
     super.dispose();
   }

@@ -108,6 +108,7 @@ void main() async {
 ///
 /// 管理主题模式（亮色/暗色），提供全局主题切换方法
 class MyApp extends StatefulWidget {
+  /// 构造函数
   const MyApp({super.key});
 
   /// 切换主题模式的静态方法
@@ -118,6 +119,7 @@ class MyApp extends StatefulWidget {
     state?.toggleTheme();
   }
 
+  /// 创建状态管理实例
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -146,6 +148,7 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  /// 构建应用根 Widget，配置 MaterialApp 主题和主页
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -166,6 +169,7 @@ class _MyAppState extends State<MyApp> {
 class _CustomTitleBar extends StatelessWidget {
   const _CustomTitleBar();
 
+  /// 构建自定义标题栏，包含拖动区域和窗口控制按钮
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -220,8 +224,10 @@ class _CustomTitleBar extends StatelessWidget {
 /// 底部导航栏 + 侧边抽屉 + 浮动添加按钮
 /// 四个页面：仪表板、订阅、日志、设置
 class MainNavigation extends StatefulWidget {
+  /// 构造函数
   const MainNavigation({super.key});
 
+  /// 创建状态管理实例
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
@@ -320,6 +326,7 @@ class _MainNavigationState extends State<MainNavigation> {
     );
   }
 
+  /// 构建主导航页面，包含页面内容、底部导航栏、侧边抽屉和浮动按钮
   @override
   Widget build(BuildContext context) {
     final proxyService = context.watch<ProxyService>();
@@ -399,12 +406,14 @@ class _AppDrawer extends StatelessWidget {
   /// 打开节点列表回调
   final VoidCallback onOpenNodeList;
 
+  /// 构造函数
   const _AppDrawer({
     required this.onToggleTheme,
     required this.onOpenRouting,
     required this.onOpenNodeList,
   });
 
+  /// 构建侧边抽屉菜单，包含节点列表、路由规则、主题切换和关于
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -489,6 +498,7 @@ class _NodeListSheet extends StatefulWidget {
 
   const _NodeListSheet({required this.scrollController, required this.onAdd});
 
+  /// 创建状态管理实例
   @override
   State<_NodeListSheet> createState() => _NodeListSheetState();
 }
@@ -511,6 +521,8 @@ class _NodeListSheetState extends State<_NodeListSheet> {
   final Set<String> _selectedIds = {};
 
   /// 应用排序和筛选
+  ///
+  /// [nodes] 待处理的节点列表
   List<NodeConfig> _applySortAndFilter(List<NodeConfig> nodes) {
     var filtered = _filterProtocol != null
         ? nodes.where((n) => n.protocol == _filterProtocol).toList()
@@ -539,6 +551,8 @@ class _NodeListSheetState extends State<_NodeListSheet> {
   }
 
   /// 按协议分组
+  ///
+  /// [nodes] 待分组的节点列表
   Map<ProxyProtocol, List<NodeConfig>> _groupByProtocolFn(
     List<NodeConfig> nodes,
   ) {
@@ -549,6 +563,7 @@ class _NodeListSheetState extends State<_NodeListSheet> {
     return map;
   }
 
+  /// 构建节点列表弹窗，包含工具栏、筛选标签和节点列表
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -751,6 +766,11 @@ class _NodeListSheetState extends State<_NodeListSheet> {
   }
 
   /// 构建扁平列表
+  ///
+  /// [context] 构建上下文
+  /// [nodes] 节点列表
+  /// [proxyService] 代理服务实例
+  /// [theme] 当前主题数据
   Widget _buildFlatList(
     BuildContext context,
     List<NodeConfig> nodes,
@@ -766,6 +786,11 @@ class _NodeListSheetState extends State<_NodeListSheet> {
   }
 
   /// 构建按协议分组列表
+  ///
+  /// [context] 构建上下文
+  /// [nodes] 节点列表
+  /// [proxyService] 代理服务实例
+  /// [theme] 当前主题数据
   Widget _buildGroupedList(
     BuildContext context,
     List<NodeConfig> nodes,
@@ -806,6 +831,11 @@ class _NodeListSheetState extends State<_NodeListSheet> {
   ///
   /// 显示：协议图标、活跃指示器、节点名称、延迟标签、协议/地址信息
   /// 右键菜单：连接、测速、编辑、删除、筛选同协议
+  ///
+  /// [context] 构建上下文
+  /// [node] 节点配置
+  /// [proxyService] 代理服务实例
+  /// [theme] 当前主题数据
   Widget _buildNodeTile(
     BuildContext context,
     NodeConfig node,

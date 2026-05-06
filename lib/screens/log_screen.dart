@@ -6,6 +6,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../services/proxy_service.dart';
 
+/// LogScreen - 日志查看页面
+///
+/// 实时显示代理内核的运行日志，支持按级别过滤、关键词搜索、
+/// 自动滚动、清空日志和分享导出
 class LogScreen extends StatefulWidget {
   const LogScreen({super.key});
 
@@ -13,13 +17,29 @@ class LogScreen extends StatefulWidget {
   State<LogScreen> createState() => _LogScreenState();
 }
 
+/// _LogScreenState - LogScreen 的状态类
+///
+/// 监听日志流并自动滚动到底部，支持级别过滤和关键词搜索
 class _LogScreenState extends State<LogScreen> {
+  /// 滚动控制器，用于自动滚动到底部
   final ScrollController _scrollController = ScrollController();
+
+  /// 当前日志过滤级别
   LogLevel _filterLevel = LogLevel.all;
+
+  /// 日志流订阅
   StreamSubscription<String>? _logSubscription;
+
+  /// 是否启用自动滚动
   bool _autoScroll = true;
+
+  /// 是否显示搜索栏
   bool _showSearch = false;
+
+  /// 搜索关键词
   String _searchQuery = '';
+
+  /// 搜索输入控制器
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -47,6 +67,9 @@ class _LogScreenState extends State<LogScreen> {
     super.dispose();
   }
 
+  /// 根据当前过滤级别和搜索关键词过滤日志列表
+  ///
+  /// [logs] 原始日志列表
   List<String> _filterLogs(List<String> logs) {
     var filtered = logs;
     if (_filterLevel != LogLevel.all) {
@@ -209,4 +232,19 @@ class _LogScreenState extends State<LogScreen> {
   }
 }
 
-enum LogLevel { all, info, warning, error }
+/// LogLevel - 日志过滤级别枚举
+///
+/// 用于日志页面的级别过滤功能
+enum LogLevel {
+  /// 显示全部日志
+  all,
+
+  /// 仅显示 Info 级别
+  info,
+
+  /// 仅显示 Warning 级别
+  warning,
+
+  /// 仅显示 Error 级别
+  error,
+}

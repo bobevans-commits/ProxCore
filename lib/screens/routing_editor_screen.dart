@@ -3,8 +3,15 @@ import 'package:uuid/uuid.dart';
 
 import '../models/config.dart';
 
+/// RoutingEditorScreen - 路由规则编辑器页面
+///
+/// 用于管理代理路由规则，支持添加、编辑、删除、拖拽排序规则，
+/// 以及导入预设规则
 class RoutingEditorScreen extends StatefulWidget {
+  /// 当前路由规则列表
   final List<RoutingRule> rules;
+
+  /// 保存回调，传入编辑后的规则列表
   final void Function(List<RoutingRule>) onSave;
 
   const RoutingEditorScreen({
@@ -17,8 +24,14 @@ class RoutingEditorScreen extends StatefulWidget {
   State<RoutingEditorScreen> createState() => _RoutingEditorScreenState();
 }
 
+/// _RoutingEditorScreenState - RoutingEditorScreen 的状态类
+///
+/// 管理规则列表的增删改查和拖拽排序
 class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
+  /// 当前编辑中的规则列表
   late List<RoutingRule> _rules;
+
+  /// 是否显示预设规则面板
   bool _showPresets = false;
 
   @override
@@ -27,6 +40,7 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     _rules = List.from(widget.rules);
   }
 
+  /// 添加一条新的空规则
   void _addRule() {
     final rule = RoutingRule(
       id: const Uuid().v4(),
@@ -35,16 +49,19 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     setState(() => _rules.add(rule));
   }
 
+  /// 移除指定索引的规则
   void _removeRule(int index) {
     setState(() => _rules.removeAt(index));
   }
 
+  /// 切换指定索引规则的启用/禁用状态
   void _toggleRule(int index) {
     setState(() {
       _rules[index] = _rules[index].copyWith(enabled: !_rules[index].enabled);
     });
   }
 
+  /// 弹出对话框编辑指定索引的规则
   void _editRule(int index) {
     final rule = _rules[index];
     final nameController = TextEditingController(text: rule.name);
@@ -155,10 +172,14 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     );
   }
 
+  /// 显示预设规则面板
   void _importPresets() {
     setState(() => _showPresets = true);
   }
 
+  /// 从预设规则中添加一条到规则列表
+  ///
+  /// [preset] 预设规则模板
   void _addPresetRule(RoutingRule preset) {
     setState(() {
       _rules.add(
@@ -175,11 +196,13 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     });
   }
 
+  /// 保存规则列表并返回上一页
   void _save() {
     widget.onSave(_rules);
     Navigator.of(context).pop();
   }
 
+  /// 获取匹配类型的中文标签
   String _typeLabel(String type) {
     switch (type) {
       case 'domain':
@@ -205,6 +228,7 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     }
   }
 
+  /// 获取匹配类型的输入提示文本
   String _matchHint(String type) {
     switch (type) {
       case 'domain':
@@ -230,6 +254,7 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     }
   }
 
+  /// 获取规则目标的中文标签
   String _targetLabel(String target) {
     switch (target) {
       case 'proxy':
@@ -243,6 +268,7 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     }
   }
 
+  /// 获取规则目标对应的图标
   IconData _targetIcon(String target) {
     switch (target) {
       case 'proxy':
@@ -256,6 +282,7 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     }
   }
 
+  /// 获取规则目标对应的颜色
   Color _targetColor(String target) {
     switch (target) {
       case 'proxy':
@@ -269,6 +296,7 @@ class _RoutingEditorScreenState extends State<RoutingEditorScreen> {
     }
   }
 
+  /// 获取匹配类型对应的图标
   IconData _typeIcon(String type) {
     switch (type) {
       case 'domain':

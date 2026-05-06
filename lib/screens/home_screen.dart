@@ -11,6 +11,9 @@ import '../services/subscription_service.dart';
 import '../utils/app_utils.dart';
 import 'settings_screen.dart';
 
+/// HomeScreen - 应用主页（仪表板）
+///
+/// 展示代理运行状态、流量统计、实时网速图表、快捷设置和连接信息
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,7 +21,11 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// _HomeScreenState - HomeScreen 的状态类
+///
+/// 通过定时器每秒刷新界面以更新流量和运行时长显示
 class _HomeScreenState extends State<HomeScreen> {
+  /// 流量刷新定时器，每秒触发一次界面重建
   Timer? _trafficTimer;
 
   @override
@@ -121,7 +128,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// _UptimeText - 运行时长文本组件
+///
+/// 显示代理运行时长，每秒自动递增更新
 class _UptimeText extends StatefulWidget {
+  /// 初始运行时长
   final Duration uptime;
 
   const _UptimeText({required this.uptime});
@@ -130,8 +141,14 @@ class _UptimeText extends StatefulWidget {
   State<_UptimeText> createState() => _UptimeTextState();
 }
 
+/// _UptimeTextState - _UptimeText 的状态类
+///
+/// 通过定时器每秒递增时长并刷新显示
 class _UptimeTextState extends State<_UptimeText> {
+  /// 当前累计运行时长
   late Duration _uptime;
+
+  /// 每秒递增的定时器
   Timer? _timer;
 
   @override
@@ -159,6 +176,7 @@ class _UptimeTextState extends State<_UptimeText> {
     super.dispose();
   }
 
+  /// 将 [d] 格式化为 HH:MM:SS 格式
   String _formatDuration(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
     final m = (d.inMinutes % 60).toString().padLeft(2, '0');
@@ -179,11 +197,23 @@ class _UptimeTextState extends State<_UptimeText> {
   }
 }
 
+/// _StatusHero - 代理状态主卡片
+///
+/// 显示代理运行/停止状态、当前活跃节点信息和启停按钮
 class _StatusHero extends StatelessWidget {
+  /// 代理是否正在运行
   final bool isRunning;
+
+  /// 当前活跃节点，可能为 null
   final NodeConfig? activeNode;
+
+  /// 节点总数
   final int nodeCount;
+
+  /// 运行时长，可能为 null
   final Duration? uptime;
+
+  /// 启停按钮回调
   final VoidCallback onToggle;
 
   const _StatusHero({
@@ -283,10 +313,20 @@ class _StatusHero extends StatelessWidget {
   }
 }
 
+/// _OverviewBar - 概览信息栏
+///
+/// 显示节点数、规则数、订阅数和当前内核的概览信息
 class _OverviewBar extends StatelessWidget {
+  /// 节点总数
   final int nodeCount;
+
+  /// 路由规则总数
   final int ruleCount;
+
+  /// 订阅总数
   final int subCount;
+
+  /// 当前内核标签
   final String kernelLabel;
 
   const _OverviewBar({
@@ -340,10 +380,20 @@ class _OverviewBar extends StatelessWidget {
   }
 }
 
+/// _OverviewChip - 概览信息单项组件
+///
+/// 显示图标、数值和标签的紧凑信息块
 class _OverviewChip extends StatelessWidget {
+  /// 图标
   final IconData icon;
+
+  /// 标签文本
   final String label;
+
+  /// 显示数值
   final String value;
+
+  /// 主题颜色
   final Color color;
 
   const _OverviewChip({
@@ -384,11 +434,23 @@ class _OverviewChip extends StatelessWidget {
   }
 }
 
+/// _StatChip - 流量统计卡片
+///
+/// 显示上传/下载速度和累计流量
 class _StatChip extends StatelessWidget {
+  /// 图标
   final IconData icon;
+
+  /// 标签文本
   final String label;
+
+  /// 当前速度值
   final String value;
+
+  /// 累计总量
   final String total;
+
+  /// 主题颜色
   final Color color;
 
   const _StatChip({
@@ -443,7 +505,11 @@ class _StatChip extends StatelessWidget {
   }
 }
 
+/// _LatencyChip - 延迟测试卡片
+///
+/// 显示当前节点延迟，点击可重新测速
 class _LatencyChip extends StatelessWidget {
+  /// 代理服务实例
   final ProxyService proxyService;
 
   const _LatencyChip({required this.proxyService});
@@ -507,7 +573,11 @@ class _LatencyChip extends StatelessWidget {
   }
 }
 
+/// _SpeedChart - 实时网速图表
+///
+/// 显示上传和下载速度的历史折线图
 class _SpeedChart extends StatelessWidget {
+  /// 代理服务实例，用于获取速度历史数据
   final ProxyService proxyService;
 
   const _SpeedChart({required this.proxyService});
@@ -558,6 +628,7 @@ class _SpeedChart extends StatelessWidget {
     );
   }
 
+  /// 生成图例小部件，[color] 为颜色，[label] 为标签文本
   Widget _legend(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -577,10 +648,20 @@ class _SpeedChart extends StatelessWidget {
   }
 }
 
+/// _SpeedChartPainter - 速度折线图绘制器
+///
+/// 使用 CustomPainter 绘制上传/下载速度的折线图和填充区域
 class _SpeedChartPainter extends CustomPainter {
+  /// 速度历史数据列表
   final List history;
+
+  /// 上传线条颜色
   final Color uploadColor;
+
+  /// 下载线条颜色
   final Color downloadColor;
+
+  /// 网格线颜色
   final Color gridColor;
 
   const _SpeedChartPainter({
@@ -623,6 +704,10 @@ class _SpeedChartPainter extends CustomPainter {
     );
   }
 
+  /// 绘制单条折线及其下方填充区域
+  ///
+  /// [canvas] 画布，[size] 绘制区域大小，[values] 数据值列表，
+  /// [color] 线条颜色，[maxVal] 数据最大值用于归一化
   void _drawLine(
     Canvas canvas,
     Size size,
@@ -670,11 +755,19 @@ class _SpeedChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _SpeedChartPainter oldDelegate) => true;
 }
 
+/// _QuickSettings - 快捷设置卡片
+///
+/// 提供 TUN 模式和系统代理的快速开关，以及跳转到完整设置页的入口
 class _QuickSettings extends StatelessWidget {
+  /// 代理服务实例
   final ProxyService proxyService;
 
   const _QuickSettings({required this.proxyService});
 
+  /// TUN 模式切换处理
+  ///
+  /// [context] 上下文，[enable] 是否开启 TUN
+  /// 开启时若未安装内核，会弹出对话框引导安装
   Future<void> _onTunToggle(BuildContext context, bool enable) async {
     if (!enable) {
       proxyService.toggleTun(false);
@@ -832,7 +925,11 @@ class _QuickSettings extends StatelessWidget {
   }
 }
 
+/// _ConnectionGrid - 连接信息网格
+///
+/// 以网格形式展示 SOCKS 端口、HTTP 端口、监听地址、内核、TUN 状态和 DNS 模式
 class _ConnectionGrid extends StatelessWidget {
+  /// 代理服务实例
   final ProxyService proxyService;
 
   const _ConnectionGrid({required this.proxyService});
@@ -961,17 +1058,33 @@ class _ConnectionGrid extends StatelessWidget {
   }
 }
 
+/// _ConnItem - 连接信息数据项
+///
+/// 用于存储连接网格中单个条目的图标、标签、值和可选的颜色
 class _ConnItem {
+  /// 图标
   final IconData icon;
+
+  /// 标签文本
   final String label;
+
+  /// 显示值
   final String value;
+
+  /// 值的颜色，为 null 时使用默认颜色
   final Color? valueColor;
 
   const _ConnItem(this.icon, this.label, this.value, {this.valueColor});
 }
 
+/// _KernelInstallScreen - 内核安装页面
+///
+/// 从主页 TUN 模式引导进入，下载并安装指定类型的内核
 class _KernelInstallScreen extends StatefulWidget {
+  /// 要安装的内核类型
   final KernelType kernelType;
+
+  /// 内核管理器实例
   final KernelManager kernelManager;
 
   const _KernelInstallScreen({
@@ -983,8 +1096,14 @@ class _KernelInstallScreen extends StatefulWidget {
   State<_KernelInstallScreen> createState() => _KernelInstallScreenState();
 }
 
+/// _KernelInstallScreenState - _KernelInstallScreen 的状态类
+///
+/// 管理下载进度和状态，监听 KernelManager 的更新通知
 class _KernelInstallScreenState extends State<_KernelInstallScreen> {
+  /// 是否正在下载
   bool _downloading = false;
+
+  /// 下载进度（0.0 ~ 1.0），null 表示不确定进度
   double? _progress;
 
   @override
@@ -993,6 +1112,9 @@ class _KernelInstallScreenState extends State<_KernelInstallScreen> {
     _startDownload();
   }
 
+  /// 启动内核下载
+  ///
+  /// 下载成功后自动返回上一页并传递 true，失败则显示错误提示
   Future<void> _startDownload() async {
     setState(() {
       _downloading = true;
@@ -1021,6 +1143,7 @@ class _KernelInstallScreenState extends State<_KernelInstallScreen> {
     }
   }
 
+  /// KernelManager 更新回调，同步下载进度
   void _onManagerUpdate() {
     if (mounted) {
       setState(() {

@@ -27,6 +27,8 @@ VMess | VLESS | Trojan | Shadowsocks | Hysteria | Hysteria2 | TUIC | Naive | Wir
 - **配置导入导出** - JSON 格式导出/导入，支持文件分享
 - **日志查看** - 实时日志流，级别过滤，一键清除
 - **主题切换** - 亮色/暗色模式
+- **WebDAV 同步** - 配置云端备份与恢复
+- **系统托盘** - 最小化到托盘，后台运行
 
 ## 项目结构
 
@@ -46,14 +48,22 @@ lib/
 │   ├── settings_screen.dart         # 设置(内核/网络/规则/DNS/端口/数据/外观)
 │   └── subscriptions_screen.dart    # 订阅管理(刷新导入/概要统计)
 ├── services/
+│   ├── admin_service.dart           # 管理员权限服务(提权/检测)
+│   ├── clash_api_service.dart       # Clash API 服务(WebSocket流量/日志/节点)
 │   ├── config_storage_service.dart  # 持久化存储(ProxyConfig/Nodes/Rules/Subs/导入导出)
+│   ├── geo_data_service.dart        # 地理数据服务(GeoSite/GeoIP下载管理)
 │   ├── kernel_manager.dart          # 内核管理(下载/安装/版本检测/GitHub API)
 │   ├── proxy_service.dart           # 中央状态管理(配置/节点/规则/代理控制/测速)
-│   └── subscription_service.dart    # 订阅服务(CRUD/刷新/解析)
+│   ├── smart_router.dart            # 智能路由(节点评分/自动选路)
+│   ├── subscription_service.dart    # 订阅服务(CRUD/刷新/解析)
+│   ├── system_proxy_service.dart    # 系统代理服务(Windows注册表/macOS networksetup)
+│   ├── tray_service.dart            # 系统托盘服务(最小化/状态图标)
+│   └── webdav_sync_service.dart     # WebDAV 同步服务(云端备份/恢复)
 ├── utils/
-│   ├── app_utils.dart               # formatBytes/protocolIcon/latencyColor
+│   ├── app_utils.dart               # formatBytes/protocolIcon/latencyColor/链接解析
 │   └── config_adapter.dart          # ProxyConfig → sing-box/mihomo/v2ray JSON
 └── widgets/
+    ├── glass_theme.dart             # 毛玻璃主题组件
     └── proxy_link_importer.dart     # 代理链接导入底部弹窗
 ```
 
@@ -74,6 +84,7 @@ lib/
 - **ProxyService** 作为中央状态管理器，所有页面通过 Provider 统一读写
 - 状态变更自动持久化到 ConfigStorageService
 - ConfigAdapter 负责将 ProxyConfig 转换为各内核的 JSON 配置格式
+- **AppUtils** 统一代理链接解析逻辑，消除 SubscriptionService 和 ProxyLinkImporter 中的重复代码
 
 ## 快速开始
 
@@ -122,6 +133,7 @@ flutter build apk --release       # Android
 ### 配置备份
 - **导出** - 设置 → 数据 → 导出配置（JSON 文件分享）
 - **导入** - 设置 → 数据 → 导入配置（选择 JSON 文件恢复）
+- **WebDAV** - 设置 → 数据 → 配置 WebDAV 地址实现云端同步
 
 ## 开发指南
 
@@ -132,8 +144,9 @@ flutter build apk --release       # Android
 
 ### 添加新协议
 1. `models/config.dart` - 添加 `ProxyProtocol` 枚举值
-2. `utils/config_adapter.dart` - 在三个内核的转换方法中添加协议处理
-3. `screens/node_editor_screen.dart` - 添加协议编辑表单
+2. `utils/app_utils.dart` - 在 `detectProtocol()` 和 `parseProxyLink()` 中添加解析逻辑
+3. `utils/config_adapter.dart` - 在三个内核的转换方法中添加协议处理
+4. `screens/node_editor_screen.dart` - 添加协议编辑表单
 
 ### 添加新页面
 1. 在 `screens/` 创建页面文件

@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'dart:convert';
 import 'dart:io';
 
 import '../models/config.dart';
@@ -71,6 +70,17 @@ class AppUtils {
     return 'amd64';
   }
 
+  /// 获取当前平台标识字符串
+  ///
+  /// 返回：windows / darwin / linux / android / unknown
+  static String getPlatformName() {
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isMacOS) return 'darwin';
+    if (Platform.isLinux) return 'linux';
+    if (Platform.isAndroid) return 'android';
+    return 'unknown';
+  }
+
   static String protocolIcon(ProxyProtocol protocol) {
     switch (protocol) {
       case ProxyProtocol.vmess:
@@ -129,5 +139,204 @@ class AppUtils {
     } catch (_) {
       return false;
     }
+  }
+
+  // ---- 代理链接解析 ----
+
+  /// 从代理链接 URI 自动检测协议类型
+  ///
+  /// 支持：vmess://, vless://, trojan://, ss://, hysteria://, hysteria2://, hy2://, tuic://
+  static ProxyProtocol? detectProtocol(String uri) {
+    final trimmed = uri.trim();
+    if (trimmed.startsWith('vmess://')) return ProxyProtocol.vmess;
+    if (trimmed.startsWith('vless://')) return ProxyProtocol.vless;
+    if (trimmed.startsWith('trojan://')) return ProxyProtocol.trojan;
+    if (trimmed.startsWith('ss://')) return ProxyProtocol.shadowsocks;
+    if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) return ProxyProtocol.hysteria2;
+    if (trimmed.startsWith('hysteria://')) return ProxyProtocol.hysteria;
+    if (trimmed.startsWith('tuic://')) return ProxyProtocol.tuic;
+    return null;
+  }
+
+  /// 解析代理链接为 NodeConfig
+  ///
+  /// 统一入口方法，自动检测协议并调用对应解析器
+  /// 不支持的协议抛出 UnimplementedError
+  static NodeConfig parseProxyLink(String uri) {
+    final protocol = detectProtocol(uri);
+    if (protocol == null) {
+      throw FormatException('无法识别的协议格式: $uri');
+    }
+
+    switch (protocol) {
+      case ProxyProtocol.vmess:
+        return _parseVmess(uri);
+      case ProxyProtocol.vless:
+      case ProxyProtocol.trojan:
+      case ProxyProtocol.hysteria2:
+        return _parseUriBased(uri, protocol);
+      case ProxyProtocol.shadowsocks:
+        return _parseShadowsocks(uri);
+      case ProxyProtocol.hysteria:
+        return _parseHysteria(uri);
+      case ProxyProtocol.tuic:
+        return _parseTuic(uri);
+      case ProxyProtocol.naive:
+      case ProxyProtocol.wireguard:
+        throw UnimplementedError(
+          '${protocol.label} 协议链接解析暂不支持，请手动添加节点',
+        );
+    }
+  }
+
+  /// 解析 VMess 协议 URI
+  ///
+  /// 格式：vmess://{Base64编码的JSON}
+  /// JSON 字段：ps(名称), add(地址), port(端口), id(UUID), aid(alterId), net(传输协议)
+  static NodeConfig _parseVmess(String uri) {
+    final encoded = uri.replaceFirst('vmess://', '');
+    final decoded = utf8.decode(base64Decode(encoded));
+    final json = jsonDecode(decoded) as Map<String, dynamic>;
+    return NodeConfig(
+      id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      name: json['ps'] as String? ?? 'VMess',
+      protocol: ProxyProtocol.vmess,
+      address: json['add'] as String? ?? '',
+      port: int.tryParse(json['port']?.toString() ?? '0') ?? 0,
+      extra: {
+        'uuid': json['id'],
+        'alterId': json['aid'] ?? 0,
+        'security': json['scy'] ?? json['net'] ?? 'auto',
+        'network': json['net'] ?? 'tcp',
+        'wsPath': json['path'],
+        'wsHost': json['host'],
+      },
+    );
+  }
+
+  /// 解析基于 URI 格式的协议链接（VLESS / Trojan / Hysteria2）
+  ///
+  /// 格式：{protocol}://{userInfo}@{host}:{port}?{params}#{name}
+  static NodeConfig _parseUriBased(String uri, ProxyProtocol protocol) {
+    final parsed = Uri.parse(uri);
+    final params = parsed.queryParameters;
+    final name = params['name'] ?? parsed.fragment;
+    final effectiveName = name.isEmpty ? protocol.label : name;
+
+    Map<String, dynamic> extra;
+    switch (protocol) {
+      case ProxyProtocol.vless:
+        extra = {
+          'uuid': parsed.userInfo,
+          'flow': params['flow'],
+          'security': params['security'] ?? 'none',
+          'type': params['type'] ?? 'tcp',
+          'sni': params['sni'],
+        };
+      case ProxyProtocol.trojan:
+        extra = {
+          'password': parsed.userInfo,
+          'sni': params['sni'],
+          'type': params['type'] ?? 'tcp',
+        };
+      case ProxyProtocol.hysteria2:
+        extra = {
+          'password': parsed.userInfo,
+          'sni': params['sni'],
+          'insecure': params['insecure'] == '1',
+        };
+      default:
+        extra = {'rawUri': uri};
+    }
+
+    return NodeConfig(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: effectiveName,
+      protocol: protocol,
+      address: parsed.host.isEmpty ? '0.0.0.0' : parsed.host,
+      port: parsed.port == 0 ? 443 : parsed.port,
+      extra: extra,
+    );
+  }
+
+  /// 解析 Shadowsocks 协议 URI
+  ///
+  /// 格式：ss://{Base64(method:password)}@{host}:{port}#{name}
+  static NodeConfig _parseShadowsocks(String uri) {
+    final content = uri.replaceFirst('ss://', '');
+    final hashIndex = content.indexOf('#');
+    final name = hashIndex >= 0
+        ? Uri.decodeComponent(content.substring(hashIndex + 1))
+        : 'Shadowsocks';
+    final body = hashIndex >= 0 ? content.substring(0, hashIndex) : content;
+
+    final atIndex = body.indexOf('@');
+    if (atIndex < 0) throw const FormatException('Invalid SS URI format');
+
+    final methodAndPassword =
+        utf8.decode(base64Decode(body.substring(0, atIndex)));
+    final colonIndex = methodAndPassword.indexOf(':');
+    final method = methodAndPassword.substring(0, colonIndex);
+    final password = methodAndPassword.substring(colonIndex + 1);
+
+    final serverPart = body.substring(atIndex + 1);
+    final colonPos = serverPart.lastIndexOf(':');
+
+    return NodeConfig(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      protocol: ProxyProtocol.shadowsocks,
+      address: serverPart.substring(0, colonPos),
+      port: int.parse(serverPart.substring(colonPos + 1)),
+      extra: {
+        'method': method,
+        'password': password,
+      },
+    );
+  }
+
+  /// 解析 Hysteria 协议 URI
+  ///
+  /// 格式：hysteria://{auth}@{host}:{port}?{params}#{name}
+  static NodeConfig _parseHysteria(String uri) {
+    final parsed = Uri.parse(uri);
+    final params = parsed.queryParameters;
+    final name = params['name'] ?? parsed.fragment;
+    final effectiveName = name.isEmpty ? 'Hysteria' : name;
+    return NodeConfig(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: effectiveName,
+      protocol: ProxyProtocol.hysteria,
+      address: parsed.host.isEmpty ? '0.0.0.0' : parsed.host,
+      port: parsed.port == 0 ? 443 : parsed.port,
+      extra: {
+        'auth': params['auth'] ?? parsed.userInfo,
+        'sni': params['sni'],
+        'insecure': params['insecure'] == '1',
+      },
+    );
+  }
+
+  /// 解析 TUIC 协议 URI
+  ///
+  /// 格式：tuic://{uuid}:{password}@{host}:{port}?{params}#{name}
+  static NodeConfig _parseTuic(String uri) {
+    final parsed = Uri.parse(uri);
+    final params = parsed.queryParameters;
+    final name = params['name'] ?? parsed.fragment;
+    final effectiveName = name.isEmpty ? 'TUIC' : name;
+    final userInfo = parsed.userInfo.split(':');
+    return NodeConfig(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: effectiveName,
+      protocol: ProxyProtocol.tuic,
+      address: parsed.host.isEmpty ? '0.0.0.0' : parsed.host,
+      port: parsed.port == 0 ? 443 : parsed.port,
+      extra: {
+        'uuid': userInfo.isNotEmpty ? userInfo[0] : '',
+        'password': userInfo.length > 1 ? userInfo[1] : '',
+        'sni': params['sni'],
+      },
+    );
   }
 }
