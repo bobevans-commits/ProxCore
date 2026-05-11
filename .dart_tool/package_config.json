@@ -2,20 +2,8 @@
   "configVersion": 2,
   "packages": [
     {
-      "name": "_fe_analyzer_shared",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/_fe_analyzer_shared-93.0.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
-    },
-    {
-      "name": "analyzer",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/analyzer-10.0.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
-    },
-    {
       "name": "archive",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/archive-3.6.1",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/archive-4.0.9",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },
@@ -32,64 +20,46 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "bitsdojo_window",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/bitsdojo_window-0.1.6",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "bitsdojo_window_linux",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/bitsdojo_window_linux-0.1.4",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "bitsdojo_window_macos",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/bitsdojo_window_macos-0.1.4",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "bitsdojo_window_platform_interface",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/bitsdojo_window_platform_interface-0.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "bitsdojo_window_windows",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/bitsdojo_window_windows-0.1.6",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
       "name": "boolean_selector",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/boolean_selector-2.1.2",
       "packageUri": "lib/",
       "languageVersion": "3.1"
     },
     {
-      "name": "build",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/build-4.0.6",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
-      "name": "build_config",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/build_config-1.3.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
-      "name": "build_daemon",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/build_daemon-4.1.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
-      "name": "build_runner",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/build_runner-2.15.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
-      "name": "built_collection",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/built_collection-5.1.1",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
-      "name": "built_value",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/built_value-8.12.6",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
       "name": "characters",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/characters-1.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
-    },
-    {
-      "name": "charcode",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/charcode-1.4.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
-      "name": "checked_yaml",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/checked_yaml-2.0.4",
-      "packageUri": "lib/",
-      "languageVersion": "3.8"
     },
     {
       "name": "clock",
@@ -104,22 +74,16 @@
       "languageVersion": "3.9"
     },
     {
-      "name": "code_builder",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/code_builder-4.11.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
       "name": "collection",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/collection-1.19.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
-      "name": "convert",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/convert-3.1.2",
+      "name": "cross_file",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/cross_file-0.3.5+2",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
+      "languageVersion": "3.8"
     },
     {
       "name": "crypto",
@@ -128,16 +92,28 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "dart_style",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/dart_style-3.1.7",
+      "name": "cupertino_icons",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/cupertino_icons-1.0.9",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.9"
     },
     {
-      "name": "equatable",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/equatable-2.0.8",
+      "name": "dbus",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/dbus-0.7.12",
       "packageUri": "lib/",
-      "languageVersion": "2.12"
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "dio",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/dio-5.9.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    },
+    {
+      "name": "dio_web_adapter",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/dio_web_adapter-2.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
     },
     {
       "name": "fake_async",
@@ -159,9 +135,9 @@
     },
     {
       "name": "file_picker",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/file_picker-6.2.1",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/file_picker-11.0.2",
       "packageUri": "lib/",
-      "languageVersion": "2.19"
+      "languageVersion": "3.4"
     },
     {
       "name": "fixnum",
@@ -170,20 +146,26 @@
       "languageVersion": "3.1"
     },
     {
-      "name": "fl_chart",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/fl_chart-0.65.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
       "name": "flutter",
       "rootUri": "file:///C:/Users/caiwe/develop/flutter/packages/flutter",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
     {
+      "name": "flutter_lints",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/flutter_lints-6.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.8"
+    },
+    {
       "name": "flutter_plugin_android_lifecycle",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/flutter_plugin_android_lifecycle-2.0.34",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "flutter_svg",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/flutter_svg-2.2.4",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -206,12 +188,6 @@
       "languageVersion": "3.3"
     },
     {
-      "name": "graphs",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/graphs-2.3.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
       "name": "hooks",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/hooks-1.0.3",
       "packageUri": "lib/",
@@ -224,20 +200,8 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "http_multi_server",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/http_multi_server-3.2.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.2"
-    },
-    {
       "name": "http_parser",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/http_parser-4.1.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
-      "name": "io",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/io-1.0.5",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
@@ -252,18 +216,6 @@
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/jni_flutter-1.0.1",
       "packageUri": "lib/",
       "languageVersion": "3.3"
-    },
-    {
-      "name": "json_annotation",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/json_annotation-4.11.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
-    },
-    {
-      "name": "json_serializable",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/json_serializable-6.13.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
     },
     {
       "name": "leak_tracker",
@@ -284,6 +236,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "lints",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/lints-6.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.8"
+    },
+    {
       "name": "logging",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/logging-1.3.0",
       "packageUri": "lib/",
@@ -302,6 +260,12 @@
       "languageVersion": "3.5"
     },
     {
+      "name": "menu_base",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/menu_base-0.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "meta",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/meta-1.17.0",
       "packageUri": "lib/",
@@ -312,12 +276,6 @@
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/mime-2.0.0",
       "packageUri": "lib/",
       "languageVersion": "3.2"
-    },
-    {
-      "name": "mockito",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/mockito-5.6.4",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
     },
     {
       "name": "native_toolchain_c",
@@ -348,6 +306,12 @@
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/path-1.9.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
+    },
+    {
+      "name": "path_parsing",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/path_parsing-1.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
     },
     {
       "name": "path_provider",
@@ -386,6 +350,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "petitparser",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/petitparser-7.0.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.8"
+    },
+    {
       "name": "platform",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/platform-3.1.6",
       "packageUri": "lib/",
@@ -398,16 +368,10 @@
       "languageVersion": "3.0"
     },
     {
-      "name": "pool",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/pool-1.5.2",
+      "name": "posix",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/posix-6.5.0",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
-      "name": "process_run",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/process_run-0.12.5+3",
-      "packageUri": "lib/",
-      "languageVersion": "2.18"
+      "languageVersion": "3.0"
     },
     {
       "name": "provider",
@@ -422,20 +386,20 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "pubspec_parse",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/pubspec_parse-1.5.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.6"
-    },
-    {
       "name": "record_use",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/record_use-0.6.0",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
     {
-      "name": "screen_retriever",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/screen_retriever-0.1.9",
+      "name": "share_plus",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/share_plus-10.1.4",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
+      "name": "share_plus_platform_interface",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/share_plus_platform_interface-5.0.2",
       "packageUri": "lib/",
       "languageVersion": "2.18"
     },
@@ -482,32 +446,14 @@
       "languageVersion": "3.3"
     },
     {
-      "name": "shelf",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/shelf-1.4.2",
+      "name": "shortid",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/shortid-0.1.2",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
-      "name": "shelf_web_socket",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/shelf_web_socket-3.0.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.5"
+      "languageVersion": "2.12"
     },
     {
       "name": "sky_engine",
       "rootUri": "file:///C:/Users/caiwe/develop/flutter/bin/cache/pkg/sky_engine",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
-    },
-    {
-      "name": "source_gen",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/source_gen-4.2.3",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
-    },
-    {
-      "name": "source_helper",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/source_helper-1.3.12",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -530,28 +476,10 @@
       "languageVersion": "3.3"
     },
     {
-      "name": "stream_transform",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/stream_transform-2.1.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.1"
-    },
-    {
       "name": "string_scanner",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/string_scanner-1.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.1"
-    },
-    {
-      "name": "synchronized",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/synchronized-3.4.0+1",
-      "packageUri": "lib/",
-      "languageVersion": "3.11"
-    },
-    {
-      "name": "system_tray",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/system_tray-2.0.3",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
     },
     {
       "name": "term_glyph",
@@ -564,6 +492,12 @@
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/test_api-0.7.10",
       "packageUri": "lib/",
       "languageVersion": "3.7"
+    },
+    {
+      "name": "tray_manager",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/tray_manager-0.5.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
     },
     {
       "name": "typed_data",
@@ -609,7 +543,7 @@
     },
     {
       "name": "url_launcher_web",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/url_launcher_web-2.4.3",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/url_launcher_web-2.4.2",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
@@ -621,9 +555,27 @@
     },
     {
       "name": "uuid",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/uuid-3.0.7",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/uuid-4.5.3",
       "packageUri": "lib/",
-      "languageVersion": "2.12"
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "vector_graphics",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/vector_graphics-1.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "vector_graphics_codec",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/vector_graphics_codec-1.1.13",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
+      "name": "vector_graphics_compiler",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/vector_graphics_compiler-1.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
     },
     {
       "name": "vector_math",
@@ -633,15 +585,9 @@
     },
     {
       "name": "vm_service",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/vm_service-15.2.0",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/vm_service-15.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.5"
-    },
-    {
-      "name": "watcher",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/watcher-1.2.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
     },
     {
       "name": "web",
@@ -668,16 +614,16 @@
       "languageVersion": "3.8"
     },
     {
-      "name": "window_manager",
-      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/window_manager-0.3.9",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
       "name": "xdg_directories",
       "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/xdg_directories-1.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.3"
+    },
+    {
+      "name": "xml",
+      "rootUri": "file:///C:/Users/caiwe/AppData/Local/Pub/Cache/hosted/pub.flutter-io.cn/xml-6.6.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.8"
     },
     {
       "name": "yaml",
@@ -689,7 +635,7 @@
       "name": "proxcore",
       "rootUri": "../",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.11"
     }
   ],
   "generator": "pub",
