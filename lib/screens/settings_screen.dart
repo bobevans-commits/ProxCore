@@ -9,7 +9,7 @@ import '../main.dart';
 import '../models/config.dart';
 import '../services/proxy_service.dart';
 import '../services/subscription_service.dart';
-import '../services/kernel_manager.dart';
+import '../widgets/kernel_install_screen.dart';
 import 'kernel_settings_screen.dart';
 
 /// SettingsScreen - 应用设置页面
@@ -740,12 +740,11 @@ class SettingsScreen extends StatelessWidget {
     );
 
     if (result == 'install' && context.mounted) {
-      final kernelType = proxyService.activeKernelType;
       final kernelManager = proxyService.kernelManager;
       final installed = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
-          builder: (_) => _SettingsKernelInstallScreen(
+          builder: (_) => KernelInstallScreen(
             kernelType: kernelType,
             kernelManager: kernelManager,
           ),
@@ -762,154 +761,6 @@ class SettingsScreen extends StatelessWidget {
         );
       }
     }
-  }
-}
-
-/// _SettingsKernelInstallScreen - 设置页内的内核安装页面
-///
-/// 从设置页 TUN 模式引导进入，下载并安装指定类型的内核
-class _SettingsKernelInstallScreen extends StatefulWidget {
-  /// 要安装的内核类型
-  final KernelType kernelType;
-
-  /// 内核管理器实例
-  final KernelManager kernelManager;
-
-  const _SettingsKernelInstallScreen({
-    required this.kernelType,
-    required this.kernelManager,
-  });
-
-  @override
-  State<_SettingsKernelInstallScreen> createState() =>
-      _SettingsKernelInstallScreenState();
-}
-
-/// _SettingsKernelInstallScreenState - _SettingsKernelInstallScreen 的状态类
-///
-/// 管理下载进度和状态，监听 KernelManager 的更新通知
-class _SettingsKernelInstallScreenState
-    extends State<_SettingsKernelInstallScreen> {
-  /// 是否正在下载
-  bool _downloading = false;
-
-  /// 下载进度（0.0 ~ 1.0），null 表示不确定进度
-  double? _progress;
-
-  @override
-  void initState() {
-    super.initState();
-    _startDownload();
-  }
-
-  /// 启动内核下载
-  ///
-  /// 下载成功后自动返回上一页并传递 true，失败则显示错误提示
-  Future<void> _startDownload() async {
-    setState(() {
-      _downloading = true;
-      _progress = null;
-    });
-
-    widget.kernelManager.addListener(_onManagerUpdate);
-
-    try {
-      await widget.kernelManager.downloadKernel(widget.kernelType);
-      if (mounted) {
-        widget.kernelManager.removeListener(_onManagerUpdate);
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      if (mounted) {
-        widget.kernelManager.removeListener(_onManagerUpdate);
-        setState(() => _downloading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('下载失败: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  /// KernelManager 更新回调，同步下载进度
-  void _onManagerUpdate() {
-    if (mounted) {
-      setState(() {
-        _progress = widget.kernelManager.downloadProgress;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.kernelManager.removeListener(_onManagerUpdate);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(title: Text('安装 ${widget.kernelType.label}')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.download,
-                size: 64,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                _downloading
-                    ? '正在下载 ${widget.kernelType.label} 内核...'
-                    : '准备下载...',
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 16),
-              if (_downloading) ...[
-                SizedBox(
-                  width: 280,
-                  child: LinearProgressIndicator(value: _progress),
-                ),
-                const SizedBox(height: 8),
-                if (_progress != null)
-                  Text(
-                    '${(_progress! * 100).toStringAsFixed(1)}%',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-              ],
-              const SizedBox(height: 24),
-              Text(
-                '下载完成后将自动返回并开启 TUN 模式',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (!_downloading)
-                FilledButton.icon(
-                  onPressed: _startDownload,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重试'),
-                ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

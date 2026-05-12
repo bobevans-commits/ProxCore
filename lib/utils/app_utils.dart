@@ -36,7 +36,7 @@ class AppUtils {
 
   static String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
-  static String getPlatformName() {
+  static String getPlatformDisplayName() {
     if (Platform.isWindows) return 'Windows';
     if (Platform.isMacOS) return 'macOS';
     if (Platform.isLinux) return 'Linux';

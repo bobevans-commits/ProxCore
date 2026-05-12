@@ -9,8 +9,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../models/config.dart';
-import '../utils/app_utils.dart';
 import '../utils/config_adapter.dart';
+import 'admin_service.dart';
 import 'clash_api_service.dart';
 import 'config_storage_service.dart';
 import 'kernel_manager.dart';

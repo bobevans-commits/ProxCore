@@ -364,7 +364,7 @@ class SubscriptionService extends ChangeNotifier {
             'security': proxy['cipher'] ?? proxy['security'] ?? 'auto',
             'network': proxy['network'] ?? 'tcp',
             'wsPath': proxy['ws-opts'] != null ? proxy['ws-path'] : null,
-            'wsHost': proxy['ws-opts'] != null ? proxy['ws-headers']?.split('\n').firstWhere((_) => _.startsWith('Host:'), orElse: () => '').replaceFirst('Host:', '').trim() : null,
+            'wsHost': proxy['ws-opts'] != null ? proxy['ws-headers']?.split('\n').firstWhere((line) => line.startsWith('Host:'), orElse: () => '').replaceFirst('Host:', '').trim() : null,
             'tls': proxy['tls'] == 'true' || proxy['tls'] == true.toString(),
             'sni': proxy['servername'] ?? proxy['sni'],
           },

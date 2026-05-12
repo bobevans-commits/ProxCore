@@ -151,3 +151,18 @@ UI层 → context.watch/read<SubscriptionService>()
 |--------|------|------|
 | TUN 权限检查 | `proxy_service.dart` | toggleTun() 开启前先检查管理员权限，拒绝提权返回 false |
 | CI/CD 发布 | `.github/workflows/release.yml` | main 分支 push 自动构建4平台+创建 GitHub Release |
+
+### 第六轮 (2026-05-12) — 编译错误修复 + 代码审查
+| 优化项 | 文件 | 说明 |
+|--------|------|------|
+| 修复重复声明 | `app_utils.dart` | getPlatformName() 重复声明→重命名为 getPlatformDisplayName() |
+| 修复缺失导入 | `proxy_service.dart` | 添加 admin_service.dart 导入 |
+| 修复闭包参数 | `subscription_service.dart` | `_` 闭包参数引用→改为 `line` |
+| 移除无用导入 | `proxy_service.dart` | 移除未使用的 app_utils.dart 导入 |
+| 修复日志重连 | `clash_api_service.dart` | 日志流 WebSocket 断线后自动重连(与流量流一致) |
+| 修复变量遮蔽 | `settings_screen.dart` | 移除重复的 kernelType 变量声明 |
+| 提取公共组件 | `widgets/kernel_install_screen.dart` | _KernelInstallScreen + _SettingsKernelInstallScreen → KernelInstallScreen |
+| 删除冗余方法 | `kernel_info.dart` | 移除未使用的 getPlatform()/getArch()，统一使用 AppUtils |
+| 移除无用导入 | `kernel_info.dart` | 移除不再需要的 dart:io |
+| 移除无用导入 | `home_screen.dart` | 移除 kernel_manager.dart 导入(已由公共组件处理) |
+| 移除无用导入 | `settings_screen.dart` | 移除 kernel_manager.dart 导入(已由公共组件处理) |

@@ -1,6 +1,6 @@
 # ProxCore 知识库索引
 
-> 更新: 2026-04-28 | 版本: 1.0.0+1 | SDK: ^3.11.5 | 包名: proxcore
+> 更新: 2026-05-12 | 版本: 1.0.0+1 | SDK: ^3.11.5 | 包名: proxcore
 
 ## 项目概述
 
@@ -27,7 +27,8 @@ main.dart (MultiProvider: KernelManager, ProxyService, SubscriptionService)
 ├── models/kernel_info.dart     KernelInfo/KernelReleaseInfo
 ├── models/singbox_config.dart  sing-box JSON配置模型
 ├── utils/config_adapter.dart   三内核配置适配生成
-└── utils/app_utils.dart        格式化/校验/图标工具
+├── utils/app_utils.dart        格式化/校验/图标/平台检测/链接解析
+└── widgets/kernel_install_screen.dart  内核安装公共组件(下载进度/重试)
 ```
 
 ## 核心数据模型 (models/config.dart)

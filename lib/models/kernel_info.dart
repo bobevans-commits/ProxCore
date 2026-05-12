@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'config.dart';
 
 /// KernelInfo - 内核信息数据模型
@@ -90,32 +88,6 @@ class KernelInfo {
       case KernelType.v2ray:
         return 'Xray (v2ray)';
     }
-  }
-
-  /// 检测当前运行平台
-  ///
-  /// 返回平台标识字符串：windows / darwin / linux / android / unknown
-  static String getPlatform() {
-    if (Platform.isWindows) return 'windows';
-    if (Platform.isMacOS) return 'darwin';
-    if (Platform.isLinux) return 'linux';
-    if (Platform.isAndroid) return 'android';
-    return 'unknown';
-  }
-
-  /// 检测当前 CPU 架构
-  ///
-  /// 返回架构标识字符串：arm64 / amd64
-  /// 优先检测 ARM64，Windows 额外检查 PROCESSOR_ARCHITECTURE 环境变量
-  static String getArch() {
-    final version = Platform.version.toLowerCase();
-    if (version.contains('arm64') || version.contains('aarch64')) return 'arm64';
-    if (Platform.isWindows) {
-      final procArch =
-          Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() ?? '';
-      if (procArch.contains('ARM64')) return 'arm64';
-    }
-    return 'amd64';
   }
 
   /// 根据内核类型、版本、平台和架构构建 GitHub 下载 URL

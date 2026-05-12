@@ -156,8 +156,14 @@ class ClashApiService extends ChangeNotifier {
             notifyListeners();
           } catch (_) {}
         },
-        onError: (_) {},
-        onDone: () {},
+        onError: (e) {
+          debugPrint('[ClashApi] Log WebSocket error: $e');
+          _reconnect();
+        },
+        onDone: () {
+          debugPrint('[ClashApi] Log WebSocket closed');
+          _reconnect();
+        },
       );
     } catch (_) {}
   }
