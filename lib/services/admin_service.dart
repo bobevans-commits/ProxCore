@@ -14,7 +14,7 @@ import 'package:flutter/foundation.dart';
 /// - 检测当前是否已拥有管理员权限
 /// - Linux 默认返回 true（需用户自行 sudo）
 class AdminService {
-/// 私有构造函数，禁止外部实例化
+  /// 私有构造函数，禁止外部实例化
   AdminService._();
 
   /// 请求管理员权限
@@ -51,17 +51,14 @@ class AdminService {
 
     try {
       final exePath = Platform.resolvedExecutable;
-      final result = await Process.run(
-        'powershell',
-        [
-          '-Command',
-          'Start-Process',
-          '-FilePath',
-          '"$exePath"',
-          '-Verb',
-          'RunAs',
-        ],
-      );
+      final result = await Process.run('powershell', [
+        '-Command',
+        'Start-Process',
+        '-FilePath',
+        '"$exePath"',
+        '-Verb',
+        'RunAs',
+      ]);
       if (result.exitCode == 0) {
         exit(0);
       }

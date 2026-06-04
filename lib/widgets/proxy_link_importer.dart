@@ -86,10 +86,7 @@ class _ProxyLinkImporterState extends State<ProxyLinkImporter> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            '导入代理链接',
-            style: theme.textTheme.titleLarge,
-          ),
+          Text('导入代理链接', style: theme.textTheme.titleLarge),
           const SizedBox(height: 16),
           TextField(
             controller: _controller,

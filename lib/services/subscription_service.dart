@@ -296,13 +296,19 @@ class SubscriptionService extends ChangeNotifier {
           // 提取 name
           final nameMatch = RegExp(r'name:\s*(.+)').firstMatch(trimmed);
           if (nameMatch != null) {
-            currentProxy['name'] = nameMatch.group(1)!.trim().replaceAll('"', '').replaceAll("'", '');
+            currentProxy['name'] = nameMatch
+                .group(1)!
+                .trim()
+                .replaceAll('"', '')
+                .replaceAll("'", '');
           }
           continue;
         }
 
         // 缩进回退，proxies 段结束
-        if (!trimmed.startsWith(' ') && !trimmed.startsWith('-') && trimmed.isNotEmpty) {
+        if (!trimmed.startsWith(' ') &&
+            !trimmed.startsWith('-') &&
+            trimmed.isNotEmpty) {
           if (currentProxy != null) {
             final node = _clashProxyToNode(currentProxy);
             if (node != null) nodes.add(node);
@@ -316,7 +322,11 @@ class SubscriptionService extends ChangeNotifier {
         if (currentProxy != null) {
           final match = RegExp(r'(\w+):\s*(.+)').firstMatch(trimmed);
           if (match != null) {
-            currentProxy[match.group(1)!] = match.group(2)!.trim().replaceAll('"', '').replaceAll("'", '');
+            currentProxy[match.group(1)!] = match
+                .group(2)!
+                .trim()
+                .replaceAll('"', '')
+                .replaceAll("'", '');
           }
         }
       }
@@ -336,7 +346,12 @@ class SubscriptionService extends ChangeNotifier {
     for (final part in inner.split(',')) {
       final kv = part.split(':');
       if (kv.length >= 2) {
-        proxy[kv[0].trim()] = kv.sublist(1).join(':').trim().replaceAll('"', '').replaceAll("'", '');
+        proxy[kv[0].trim()] = kv
+            .sublist(1)
+            .join(':')
+            .trim()
+            .replaceAll('"', '')
+            .replaceAll("'", '');
       }
     }
   }
@@ -364,7 +379,16 @@ class SubscriptionService extends ChangeNotifier {
             'security': proxy['cipher'] ?? proxy['security'] ?? 'auto',
             'network': proxy['network'] ?? 'tcp',
             'wsPath': proxy['ws-opts'] != null ? proxy['ws-path'] : null,
-            'wsHost': proxy['ws-opts'] != null ? proxy['ws-headers']?.split('\n').firstWhere((line) => line.startsWith('Host:'), orElse: () => '').replaceFirst('Host:', '').trim() : null,
+            'wsHost': proxy['ws-opts'] != null
+                ? proxy['ws-headers']
+                      ?.split('\n')
+                      .firstWhere(
+                        (line) => line.startsWith('Host:'),
+                        orElse: () => '',
+                      )
+                      .replaceFirst('Host:', '')
+                      .trim()
+                : null,
             'tls': proxy['tls'] == 'true' || proxy['tls'] == true.toString(),
             'sni': proxy['servername'] ?? proxy['sni'],
           },
@@ -382,8 +406,12 @@ class SubscriptionService extends ChangeNotifier {
             'security': proxy['security'] ?? 'none',
             'type': proxy['network'] ?? proxy['type'] ?? 'tcp',
             'sni': proxy['servername'] ?? proxy['sni'],
-            'realityPublicKey': proxy['reality-opts'] != null ? proxy['public-key'] : null,
-            'realityShortId': proxy['reality-opts'] != null ? proxy['short-id'] : null,
+            'realityPublicKey': proxy['reality-opts'] != null
+                ? proxy['public-key']
+                : null,
+            'realityShortId': proxy['reality-opts'] != null
+                ? proxy['short-id']
+                : null,
             'tls': proxy['tls'] == 'true',
           },
         );

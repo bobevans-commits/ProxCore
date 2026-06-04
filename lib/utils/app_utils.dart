@@ -54,7 +54,9 @@ class AppUtils {
   /// 默认返回 amd64
   static String getArchName() {
     final version = Platform.version.toLowerCase();
-    if (version.contains('arm64') || version.contains('aarch64')) return 'arm64';
+    if (version.contains('arm64') || version.contains('aarch64')) {
+      return 'arm64';
+    }
     if (Platform.isWindows) {
       final procArch =
           Platform.environment['PROCESSOR_ARCHITECTURE']?.toUpperCase() ?? '';
@@ -129,7 +131,9 @@ class AppUtils {
     final ipv4 = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
     final ipv6 = RegExp(r'^\[?([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\]?$');
     final domain = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]*\.)+[a-zA-Z]{2,}$');
-    return ipv4.hasMatch(address) || ipv6.hasMatch(address) || domain.hasMatch(address);
+    return ipv4.hasMatch(address) ||
+        ipv6.hasMatch(address) ||
+        domain.hasMatch(address);
   }
 
   static bool isValidUrl(String url) {
@@ -152,7 +156,9 @@ class AppUtils {
     if (trimmed.startsWith('vless://')) return ProxyProtocol.vless;
     if (trimmed.startsWith('trojan://')) return ProxyProtocol.trojan;
     if (trimmed.startsWith('ss://')) return ProxyProtocol.shadowsocks;
-    if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) return ProxyProtocol.hysteria2;
+    if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) {
+      return ProxyProtocol.hysteria2;
+    }
     if (trimmed.startsWith('hysteria://')) return ProxyProtocol.hysteria;
     if (trimmed.startsWith('tuic://')) return ProxyProtocol.tuic;
     return null;
@@ -183,9 +189,7 @@ class AppUtils {
         return _parseTuic(uri);
       case ProxyProtocol.naive:
       case ProxyProtocol.wireguard:
-        throw UnimplementedError(
-          '${protocol.label} 协议链接解析暂不支持，请手动添加节点',
-        );
+        throw UnimplementedError('${protocol.label} 协议链接解析暂不支持，请手动添加节点');
     }
   }
 
@@ -200,7 +204,9 @@ class AppUtils {
     final decoded = utf8.decode(base64Decode(encoded));
     final json = jsonDecode(decoded) as Map<String, dynamic>;
     return NodeConfig(
-      id: json['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          json['id']?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       name: json['ps'] as String? ?? 'VMess',
       protocol: ProxyProtocol.vmess,
       address: json['add'] as String? ?? '',
@@ -321,13 +327,17 @@ class AppUtils {
         method = encodedPart.substring(0, colonIndex);
         password = encodedPart.substring(colonIndex + 1);
       } else {
-        throw const FormatException('Invalid SS URI: cannot decode credentials');
+        throw const FormatException(
+          'Invalid SS URI: cannot decode credentials',
+        );
       }
     }
 
     final serverPart = body.substring(atIndex + 1);
     final colonPos = serverPart.lastIndexOf(':');
-    if (colonPos < 0) throw const FormatException('Invalid SS URI: missing port');
+    if (colonPos < 0) {
+      throw const FormatException('Invalid SS URI: missing port');
+    }
 
     // 解析 SIP002 查询参数（如 plugin）
     final questionPos = serverPart.indexOf('?');
@@ -342,10 +352,7 @@ class AppUtils {
       protocol: ProxyProtocol.shadowsocks,
       address: hostPort.substring(0, hostColon),
       port: int.parse(hostPort.substring(hostColon + 1)),
-      extra: {
-        'method': method,
-        'password': password,
-      },
+      extra: {'method': method, 'password': password},
     );
   }
 

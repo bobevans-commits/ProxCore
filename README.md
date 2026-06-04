@@ -89,8 +89,10 @@ lib/
 ## 快速开始
 
 ### 环境要求
-- Flutter SDK >= 3.11.5
-- Dart >= 3.11.5
+- Flutter SDK
+- Dart SDK ^3.11.5
+
+> 详见 [pubspec.yaml](pubspec.yaml) 中的 `environment.sdk` 约束
 
 ### 安装与运行
 ```bash

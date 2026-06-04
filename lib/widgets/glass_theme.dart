@@ -32,27 +32,25 @@ class GlassTheme {
   /// 卡片：无阴影，16px 圆角
   /// AppBar/NavigationBar：透明背景
   static ThemeData get lightTheme => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorSchemeSeed: primaryColor,
-        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          indicatorColor: primaryColor.withValues(alpha: 0.15),
-        ),
-      );
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorSchemeSeed: primaryColor,
+    scaffoldBackgroundColor: const Color(0xFFF0F2F5),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      indicatorColor: primaryColor.withValues(alpha: 0.15),
+    ),
+  );
 
   /// 暗色主题
   ///
@@ -60,28 +58,26 @@ class GlassTheme {
   /// 卡片：5% 白色透明度，16px 圆角
   /// AppBar/NavigationBar：透明背景
   static ThemeData get darkTheme => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: primaryColor,
-        scaffoldBackgroundColor: const Color(0xFF0A0E27),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: Colors.white.withValues(alpha: 0.05),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          indicatorColor: primaryColor.withValues(alpha: 0.2),
-        ),
-      );
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorSchemeSeed: primaryColor,
+    scaffoldBackgroundColor: const Color(0xFF0A0E27),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      color: Colors.white.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      indicatorColor: primaryColor.withValues(alpha: 0.2),
+    ),
+  );
 }
 
 /// 毛玻璃风格卡片组件
@@ -137,8 +133,11 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = tintColor ??
-        (isDark ? Colors.white.withValues(alpha: opacity) : Colors.white.withValues(alpha: opacity + 0.6));
+    final color =
+        tintColor ??
+        (isDark
+            ? Colors.white.withValues(alpha: opacity)
+            : Colors.white.withValues(alpha: opacity + 0.6));
 
     return Container(
       margin: margin,
@@ -151,7 +150,8 @@ class GlassCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(borderRadius),
-              border: border ??
+              border:
+                  border ??
                   Border.all(
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.08)
@@ -194,7 +194,11 @@ class GlassButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = color ?? (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.7));
+    final bgColor =
+        color ??
+        (isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.white.withValues(alpha: 0.7));
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -261,7 +265,9 @@ class GlassSwitch extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           color: value
               ? color
-              : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300),
+              : (isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.grey.shade300),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.1)

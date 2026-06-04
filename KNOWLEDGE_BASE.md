@@ -1,6 +1,6 @@
 # ProxCore 知识库索引
 
-> 生成时间: 2026-05-06 | 版本: 1.1.0
+> 生成时间: 2026-06-04 | 版本: 1.2.0
 
 ## 项目元信息
 
@@ -166,3 +166,40 @@ UI层 → context.watch/read<SubscriptionService>()
 | 移除无用导入 | `kernel_info.dart` | 移除不再需要的 dart:io |
 | 移除无用导入 | `home_screen.dart` | 移除 kernel_manager.dart 导入(已由公共组件处理) |
 | 移除无用导入 | `settings_screen.dart` | 移除 kernel_manager.dart 导入(已由公共组件处理) |
+
+### 第七轮 (2026-05-12) — P1 任务执行
+| 优化项 | 文件 | 说明 |
+|--------|------|------|
+| 提取节点列表弹窗 | `widgets/node_list_sheet.dart` (新建) | main.dart 中 _NodeListSheet (489行) 提取为公开 NodeListSheet 公共组件 |
+| 提取 TUN 切换工具 | `utils/tun_helper.dart` (新建) | 消除 _QuickSettings._onTunToggle() 与 _SettingsNetworkSection._onTunToggle() 重复 (~120行) |
+| 精简 main.dart | `main.dart` | 985行 → 482行 (-503行, -51%) |
+| 清理未用导入 | `main.dart` | 移除 models/config.dart / utils/app_utils.dart (随 _NodeListSheet 提取后不再使用) |
+| 清理未用导入 | `override_settings_screen.dart` | 移除未引用的 ../models/config.dart |
+| 文档版本同步 | `README.md` | 改为引用 pubspec.yaml 中的 environment.sdk 约束 |
+
+### 第八轮 (2026-05-12) — P1 拆分 config_adapter
+| 优化项 | 文件 | 说明 |
+|--------|------|------|
+| 拆分配置适配器 | `utils/config_adapter.dart` (875→91行) | 重构为统一入口(向后兼容 ConfigAdapter API) |
+| DNS 配置构建器 | `utils/adapters/dns_config_builder.dart` (新建,122行) | 跨内核共享 DNS 配置(singbox/mihomo/v2ray) |
+| sing-box 适配器 | `utils/adapters/singbox_adapter.dart` (新建,406行) | 9 种协议的 sing-box 出站 + 入站/路由/实验性配置 |
+| mihomo 适配器 | `utils/adapters/mihomo_adapter.dart` (新建,281行) | 7 种协议的 mihomo proxies + rules + TUN |
+| v2ray 适配器 | `utils/adapters/v2ray_adapter.dart` (新建,358行) | 4 种协议的 v2ray JSON + routing + TUN |
+
+### 第九轮 (2026-06-04) — 测试覆盖提升
+| 优化项 | 文件 | 说明 |
+|--------|------|------|
+| 修复测试断言 | `test/singbox_adapter_test.dart` | `SingboxInbound.toJson` 使用 `listen` 键 (非 `listen_address`)，修正断言 + 新增 lanSharing=false 场景 |
+| 修复 EMA 期望值 | `test/smart_router_test.dart` | 持久化测试中首次 `recordConnect` 后 avgLatencyMs 默认为 0，EMA 计算 0*0.7+50*0.3=15.0（修正预期值）+ 新增空数据/缺字段容错测试 |
+| 单元测试套件 | 全量 | 107 个测试全部通过：`flutter analyze` 0 issues |
+
+## 测试矩阵（当前覆盖）
+
+| 测试文件 | 用例数 | 覆盖范围 |
+|----------|--------|----------|
+| `widget_test.dart` | 53 | KernelType/ProxyProtocol/KernelStatus/NodeConfig/ProxyConfig/RoutingRule/SingboxConfig/AppUtils/ConfigAdapter 序列化+转换+deepMerge |
+| `smart_router_test.dart` | 18 | NodeScore 模型+稳定性/EMA/pickBest/getRankedNodes/持久化往返+容错 |
+| `singbox_adapter_test.dart` | 14 | 9 种协议 outbound + TUN/广告屏蔽/LAN共享/Clash API/路由规则 |
+| `mihomo_v2ray_adapter_test.dart` | 16 | 节点→proxy/streamSettings 转换+TLS/Reality/WS/gRPC |
+| `dns_config_builder_test.dart` | 6 | system/custom/DoH/DoT 四种模式跨 3 内核 |
+| **合计** | **107** | 全部通过 ✅ |

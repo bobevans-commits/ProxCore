@@ -29,9 +29,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            title: const Text('订阅管理'),
-          ),
+          SliverAppBar(title: const Text('订阅管理')),
           if (subService.isLoading)
             const SliverToBoxAdapter(
               child: Center(child: CircularProgressIndicator()),
@@ -46,7 +44,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       subService.error!,
-                      style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
                     ),
                   ),
                 ),
@@ -62,32 +62,29 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             ),
           ),
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final sub = subService.subscriptions[index];
-                return _SubscriptionTile(
-                  subscription: sub,
-                  onRefresh: () async {
-                    final nodes = await subService.refreshSubscription(sub.id);
-                    if (nodes.isNotEmpty && context.mounted) {
-                      proxyService.addNodes(nodes);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('已导入 ${nodes.length} 个节点'),
-                            duration: const Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final sub = subService.subscriptions[index];
+              return _SubscriptionTile(
+                subscription: sub,
+                onRefresh: () async {
+                  final nodes = await subService.refreshSubscription(sub.id);
+                  if (nodes.isNotEmpty && context.mounted) {
+                    proxyService.addNodes(nodes);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('已导入 ${nodes.length} 个节点'),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
                     }
-                  },
-                  onEdit: () => _showEditDialog(context, sub),
-                  onDelete: () => _confirmDelete(context, sub),
-                );
-              },
-              childCount: subService.subscriptions.length,
-            ),
+                  }
+                },
+                onEdit: () => _showEditDialog(context, sub),
+                onDelete: () => _confirmDelete(context, sub),
+              );
+            }, childCount: subService.subscriptions.length),
           ),
           if (subService.subscriptions.isEmpty)
             SliverFillRemaining(
@@ -291,10 +288,7 @@ class _SubscriptionSummary extends StatelessWidget {
   /// 节点数量
   final int nodeCount;
 
-  const _SubscriptionSummary({
-    required this.subCount,
-    required this.nodeCount,
-  });
+  const _SubscriptionSummary({required this.subCount, required this.nodeCount});
 
   @override
   Widget build(BuildContext context) {
@@ -381,16 +375,16 @@ class _SummaryChip extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
+            color: Theme.of(context).colorScheme.outline,
+          ),
         ),
         const SizedBox(width: 4),
         Text(
           value,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
         ),
       ],
     );

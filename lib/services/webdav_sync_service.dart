@@ -82,10 +82,7 @@ class WebDavSyncService extends ChangeNotifier {
   /// 404 时尝试创建远程目录
   Future<bool> testConnection() async {
     try {
-      await _dio.request(
-        _remotePath,
-        options: Options(method: 'PROPFIND'),
-      );
+      await _dio.request(_remotePath, options: Options(method: 'PROPFIND'));
       return true;
     } on DioException catch (e) {
       if (e.response?.statusCode == 207) return true;
@@ -118,7 +115,8 @@ class WebDavSyncService extends ChangeNotifier {
     try {
       await _createDirectory(_remotePath);
 
-      final filename = 'proxcore_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+      final filename =
+          'proxcore_backup_${DateTime.now().millisecondsSinceEpoch}.json';
       await _dio.put(
         '$_remotePath$filename',
         data: configJson,
@@ -178,10 +176,7 @@ class WebDavSyncService extends ChangeNotifier {
   /// 405 状态码表示目录已存在，忽略该错误
   Future<void> _createDirectory(String path) async {
     try {
-      await _dio.request(
-        path,
-        options: Options(method: 'MKCOL'),
-      );
+      await _dio.request(path, options: Options(method: 'MKCOL'));
     } on DioException catch (e) {
       if (e.response?.statusCode != 405) rethrow;
     }
@@ -191,12 +186,12 @@ class WebDavSyncService extends ChangeNotifier {
   ///
   /// 密码使用 Base64 编码存储，避免明文暴露
   Map<String, dynamic> toJson() => {
-        'server_url': _serverUrl,
-        'username': _username,
-        'password': base64Encode(utf8.encode(_password)),
-        'remote_path': _remotePath,
-        'last_sync_time': _lastSyncTime,
-      };
+    'server_url': _serverUrl,
+    'username': _username,
+    'password': base64Encode(utf8.encode(_password)),
+    'remote_path': _remotePath,
+    'last_sync_time': _lastSyncTime,
+  };
 
   /// 从 JSON 反序列化并自动配置连接
   ///

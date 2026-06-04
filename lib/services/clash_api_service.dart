@@ -202,7 +202,9 @@ class ClashApiService extends ChangeNotifier {
       final data = resp.data as Map<String, dynamic>;
       final proxies = data['proxies'] as Map<String, dynamic>;
       return proxies.entries
-          .map((e) => ClashProxy.fromJson(e.key, e.value as Map<String, dynamic>))
+          .map(
+            (e) => ClashProxy.fromJson(e.key, e.value as Map<String, dynamic>),
+          )
           .toList();
     } catch (_) {
       return [];
@@ -303,7 +305,8 @@ class ClashProxy {
   }
 
   /// 是否为代理组（Selector / URLTest / Fallback）
-  bool get isGroup => type == 'Selector' || type == 'URLTest' || type == 'Fallback';
+  bool get isGroup =>
+      type == 'Selector' || type == 'URLTest' || type == 'Fallback';
 }
 
 /// Clash 活跃连接数据模型
@@ -354,7 +357,8 @@ class ClashConnection {
       chain: (json['chains'] as List?)?.join(' → ') ?? '',
       upload: (json['upload'] as num?)?.toInt() ?? 0,
       download: (json['download'] as num?)?.toInt() ?? 0,
-      start: DateTime.tryParse(json['start'] as String? ?? '') ?? DateTime.now(),
+      start:
+          DateTime.tryParse(json['start'] as String? ?? '') ?? DateTime.now(),
     );
   }
 }

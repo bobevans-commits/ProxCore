@@ -12,7 +12,7 @@ import 'dart:io';
 /// - Linux：生成 proxy_env.sh 环境变量脚本
 /// - 自动配置代理绕过列表（localhost、私有网络地址）
 class SystemProxyService {
-/// 私有构造函数，禁止外部实例化
+  /// 私有构造函数，禁止外部实例化
   SystemProxyService._();
 
   /// 启用系统代理
@@ -53,29 +53,39 @@ class SystemProxyService {
   /// - ProxyOverride = 绕过列表（localhost、私有网络）
   static Future<void> _enableWindowsProxy(String host, int port) async {
     final proxyServer = '$host:$port';
-    const bypassList = 'localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>';
+    const bypassList =
+        'localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;<local>';
     await Process.run('reg', [
       'add',
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
-      '/v', 'ProxyEnable',
-      '/t', 'REG_DWORD',
-      '/d', '1',
+      '/v',
+      'ProxyEnable',
+      '/t',
+      'REG_DWORD',
+      '/d',
+      '1',
       '/f',
     ]);
     await Process.run('reg', [
       'add',
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
-      '/v', 'ProxyServer',
-      '/t', 'REG_SZ',
-      '/d', proxyServer,
+      '/v',
+      'ProxyServer',
+      '/t',
+      'REG_SZ',
+      '/d',
+      proxyServer,
       '/f',
     ]);
     await Process.run('reg', [
       'add',
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
-      '/v', 'ProxyOverride',
-      '/t', 'REG_SZ',
-      '/d', bypassList,
+      '/v',
+      'ProxyOverride',
+      '/t',
+      'REG_SZ',
+      '/d',
+      bypassList,
       '/f',
     ]);
   }
@@ -87,9 +97,12 @@ class SystemProxyService {
     await Process.run('reg', [
       'add',
       r'HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings',
-      '/v', 'ProxyEnable',
-      '/t', 'REG_DWORD',
-      '/d', '0',
+      '/v',
+      'ProxyEnable',
+      '/t',
+      'REG_DWORD',
+      '/d',
+      '0',
       '/f',
     ]);
   }
@@ -99,7 +112,8 @@ class SystemProxyService {
   /// 生成 proxy_env.sh 脚本，设置 http_proxy / https_proxy / ftp_proxy 环境变量
   /// 用户需手动 source 该脚本或配置 shell 自动加载
   static Future<void> _enableLinuxProxy(String host, int port) async {
-    final envContent = '''
+    final envContent =
+        '''
 export http_proxy="http://$host:$port"
 export https_proxy="http://$host:$port"
 export ftp_proxy="http://$host:$port"
@@ -130,17 +144,32 @@ export no_proxy="localhost,127.0.0.1,10.*,172.16.*,172.17.*,172.18.*,172.19.*,17
     final services = await _getMacNetworkServices();
     for (final service in services) {
       await Process.run('networksetup', [
-        '-setwebproxy', service, host, '$port',
+        '-setwebproxy',
+        service,
+        host,
+        '$port',
       ]);
       await Process.run('networksetup', [
-        '-setsecurewebproxy', service, host, '$port',
+        '-setsecurewebproxy',
+        service,
+        host,
+        '$port',
       ]);
       await Process.run('networksetup', [
-        '-setsocksfirewallproxy', service, host, '$port',
+        '-setsocksfirewallproxy',
+        service,
+        host,
+        '$port',
       ]);
       await Process.run('networksetup', [
-        '-setproxybypassdomains', service,
-        'localhost', '127.0.0.1', '*.local', '10.*', '172.16.*', '192.168.*',
+        '-setproxybypassdomains',
+        service,
+        'localhost',
+        '127.0.0.1',
+        '*.local',
+        '10.*',
+        '172.16.*',
+        '192.168.*',
       ]);
     }
   }
@@ -151,14 +180,16 @@ export no_proxy="localhost,127.0.0.1,10.*,172.16.*,172.17.*,172.18.*,172.19.*,17
   static Future<void> _disableMacProxy() async {
     final services = await _getMacNetworkServices();
     for (final service in services) {
+      await Process.run('networksetup', ['-setwebproxystate', service, 'off']);
       await Process.run('networksetup', [
-        '-setwebproxystate', service, 'off',
+        '-setsecurewebproxystate',
+        service,
+        'off',
       ]);
       await Process.run('networksetup', [
-        '-setsecurewebproxystate', service, 'off',
-      ]);
-      await Process.run('networksetup', [
-        '-setsocksfirewallproxystate', service, 'off',
+        '-setsocksfirewallproxystate',
+        service,
+        'off',
       ]);
     }
   }
@@ -169,9 +200,9 @@ export no_proxy="localhost,127.0.0.1,10.*,172.16.*,172.17.*,172.18.*,172.19.*,17
   /// 跳过第一行标题和带 * 标记的禁用服务
   static Future<List<String>> _getMacNetworkServices() async {
     try {
-      final result = await Process.run(
-        'networksetup', ['-listallnetworkservices'],
-      );
+      final result = await Process.run('networksetup', [
+        '-listallnetworkservices',
+      ]);
       final lines = (result.stdout as String).split('\n');
       return lines
           .skip(1)

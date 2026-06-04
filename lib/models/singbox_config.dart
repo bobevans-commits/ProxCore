@@ -22,17 +22,16 @@ class SingboxOutbound {
   });
 
   /// 序列化为 JSON，将 [type] 和 [tag] 与 [options] 合并输出
-  Map<String, dynamic> toJson() => {
-        'type': type,
-        'tag': tag,
-        ...options,
-      };
+  Map<String, dynamic> toJson() => {'type': type, 'tag': tag, ...options};
 
   /// 从 JSON 反序列化，自动分离 [type]、[tag] 和其余字段到 [options]
-  factory SingboxOutbound.fromJson(Map<String, dynamic> json) => SingboxOutbound(
+  factory SingboxOutbound.fromJson(Map<String, dynamic> json) =>
+      SingboxOutbound(
         type: json['type'] as String,
         tag: json['tag'] as String,
-        options: Map.from(json)..remove('type')..remove('tag'),
+        options: Map.from(json)
+          ..remove('type')
+          ..remove('tag'),
       );
 }
 
@@ -112,16 +111,13 @@ class SingboxRoute {
   final String? finalOutbound;
 
   /// 路由配置构造函数
-  const SingboxRoute({
-    this.rules = const [],
-    this.finalOutbound,
-  });
+  const SingboxRoute({this.rules = const [], this.finalOutbound});
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'rules': rules.map((r) => r.toJson()).toList(),
-        if (finalOutbound != null) 'final': finalOutbound,
-      };
+    'rules': rules.map((r) => r.toJson()).toList(),
+    if (finalOutbound != null) 'final': finalOutbound,
+  };
 }
 
 /// SingboxInbound - sing-box 入站配置
@@ -154,25 +150,25 @@ class SingboxInbound {
 
   /// 序列化为 JSON，将 [type]、[tag]、[listenAddress]、[listenPort] 与 [extra] 合并输出
   Map<String, dynamic> toJson() => {
-        'type': type,
-        'tag': tag,
-        'listen': listenAddress,
-        'listen_port': listenPort,
-        ...extra,
-      };
+    'type': type,
+    'tag': tag,
+    'listen': listenAddress,
+    'listen_port': listenPort,
+    ...extra,
+  };
 
   /// 从 JSON 反序列化，自动分离核心字段和额外参数
   factory SingboxInbound.fromJson(Map<String, dynamic> json) => SingboxInbound(
-        type: json['type'] as String,
-        tag: json['tag'] as String,
-        listenAddress: json['listen'] as String? ?? '127.0.0.1',
-        listenPort: json['listen_port'] as int? ?? 1080,
-        extra: Map.from(json)
-          ..remove('type')
-          ..remove('tag')
-          ..remove('listen')
-          ..remove('listen_port'),
-      );
+    type: json['type'] as String,
+    tag: json['tag'] as String,
+    listenAddress: json['listen'] as String? ?? '127.0.0.1',
+    listenPort: json['listen_port'] as int? ?? 1080,
+    extra: Map.from(json)
+      ..remove('type')
+      ..remove('tag')
+      ..remove('listen')
+      ..remove('listen_port'),
+  );
 }
 
 /// SingboxConfig - sing-box 完整配置
@@ -202,52 +198,56 @@ class SingboxConfig {
 
   /// 序列化为 JSON，自动包含日志配置
   Map<String, dynamic> toJson() => {
-        'log': {
-          'level': 'info',
-          'timestamp': true,
-        },
-        if (inbounds.isNotEmpty)
-          'inbounds': inbounds.map((i) => i.toJson()).toList(),
-        if (outbounds.isNotEmpty)
-          'outbounds': outbounds.map((o) => o.toJson()).toList(),
-        'route': route.toJson(),
-        if (experimental.isNotEmpty) 'experimental': experimental,
-      };
+    'log': {'level': 'info', 'timestamp': true},
+    if (inbounds.isNotEmpty)
+      'inbounds': inbounds.map((i) => i.toJson()).toList(),
+    if (outbounds.isNotEmpty)
+      'outbounds': outbounds.map((o) => o.toJson()).toList(),
+    'route': route.toJson(),
+    if (experimental.isNotEmpty) 'experimental': experimental,
+  };
 
   /// 序列化为格式化的 JSON 字符串（带缩进）
   String toJsonString() => const JsonEncoder.withIndent('  ').convert(toJson());
 
   /// 从 JSON 反序列化为 SingboxConfig
   factory SingboxConfig.fromJson(Map<String, dynamic> json) => SingboxConfig(
-        inbounds: (json['inbounds'] as List?)
-                ?.map((i) => SingboxInbound.fromJson(i as Map<String, dynamic>))
-                .toList() ??
-            [],
-        outbounds: (json['outbounds'] as List?)
-                ?.map((o) => SingboxOutbound.fromJson(o as Map<String, dynamic>))
-                .toList() ??
-            [],
-        route: json['route'] != null
-            ? SingboxRoute(
-                rules: (json['route']['rules'] as List?)
-                        ?.map((r) => SingboxRouteRule(
-                              outbound: r['outbound'] as String? ?? 'direct',
-                              domain: (r['domain'] as List?)
-                                      ?.map((d) => d as String)
-                                      .toList() ??
-                                  [],
-                              ip: (r['ip_cidr'] as List?)
-                                      ?.map((i) => i as String)
-                                      .toList() ??
-                                  [],
-                            ))
-                        .toList() ??
-                    [],
-                finalOutbound: json['route']['final'] as String?,
-              )
-            : const SingboxRoute(),
-        experimental: Map<String, dynamic>.from(json['experimental'] as Map? ?? {}),
-      );
+    inbounds:
+        (json['inbounds'] as List?)
+            ?.map((i) => SingboxInbound.fromJson(i as Map<String, dynamic>))
+            .toList() ??
+        [],
+    outbounds:
+        (json['outbounds'] as List?)
+            ?.map((o) => SingboxOutbound.fromJson(o as Map<String, dynamic>))
+            .toList() ??
+        [],
+    route: json['route'] != null
+        ? SingboxRoute(
+            rules:
+                (json['route']['rules'] as List?)
+                    ?.map(
+                      (r) => SingboxRouteRule(
+                        outbound: r['outbound'] as String? ?? 'direct',
+                        domain:
+                            (r['domain'] as List?)
+                                ?.map((d) => d as String)
+                                .toList() ??
+                            [],
+                        ip:
+                            (r['ip_cidr'] as List?)
+                                ?.map((i) => i as String)
+                                .toList() ??
+                            [],
+                      ),
+                    )
+                    .toList() ??
+                [],
+            finalOutbound: json['route']['final'] as String?,
+          )
+        : const SingboxRoute(),
+    experimental: Map<String, dynamic>.from(json['experimental'] as Map? ?? {}),
+  );
 
   /// 从 JSON 字符串反序列化为 SingboxConfig
   factory SingboxConfig.fromJsonString(String s) =>
@@ -264,24 +264,14 @@ class SingboxConfig {
   }) {
     return SingboxConfig(
       inbounds: [
-        SingboxInbound(
-          type: 'socks',
-          tag: 'socks-in',
-          listenPort: socksPort,
-        ),
-        SingboxInbound(
-          type: 'http',
-          tag: 'http-in',
-          listenPort: httpPort,
-        ),
+        SingboxInbound(type: 'socks', tag: 'socks-in', listenPort: socksPort),
+        SingboxInbound(type: 'http', tag: 'http-in', listenPort: httpPort),
       ],
       outbounds: [
         const SingboxOutbound(type: 'direct', tag: 'direct'),
         const SingboxOutbound(type: 'block', tag: 'block'),
       ],
-      route: const SingboxRoute(
-        finalOutbound: 'direct',
-      ),
+      route: const SingboxRoute(finalOutbound: 'direct'),
     );
   }
 }

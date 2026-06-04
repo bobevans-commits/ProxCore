@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -20,7 +19,9 @@ class ConfigStorageService {
   bool get isInitialized => _prefs != null;
 
   SharedPreferences get prefs {
-    if (_prefs == null) throw StateError('ConfigStorageService not initialized');
+    if (_prefs == null) {
+      throw StateError('ConfigStorageService not initialized');
+    }
     return _prefs!;
   }
 
@@ -35,11 +36,13 @@ class ConfigStorageService {
   /// 推荐使用 [init] 替代，确保初始化完成后再读取数据
   void initSync() {
     if (_prefs != null) return;
-    SharedPreferences.getInstance().then((prefs) {
-      _prefs = prefs;
-    }).catchError((e) {
-      debugPrint('ConfigStorageService: initSync failed: $e');
-    });
+    SharedPreferences.getInstance()
+        .then((prefs) {
+          _prefs = prefs;
+        })
+        .catchError((e) {
+          debugPrint('ConfigStorageService: initSync failed: $e');
+        });
   }
 
   // ProxyConfig
@@ -214,7 +217,9 @@ class ConfigStorageService {
       }
 
       if (data['active_kernel'] != null) {
-        await saveActiveKernel(KernelType.fromName(data['active_kernel'] as String));
+        await saveActiveKernel(
+          KernelType.fromName(data['active_kernel'] as String),
+        );
       }
 
       return true;
@@ -272,20 +277,22 @@ class SubscriptionInfo {
       id: id ?? this.id,
       name: name ?? this.name,
       url: url ?? this.url,
-      updateIntervalMinutes: updateIntervalMinutes ?? this.updateIntervalMinutes,
+      updateIntervalMinutes:
+          updateIntervalMinutes ?? this.updateIntervalMinutes,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'url': url,
-        'update_interval_minutes': updateIntervalMinutes,
-        'last_updated': lastUpdated?.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'url': url,
+    'update_interval_minutes': updateIntervalMinutes,
+    'last_updated': lastUpdated?.toIso8601String(),
+  };
 
-  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) => SubscriptionInfo(
+  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) =>
+      SubscriptionInfo(
         id: json['id'] as String,
         name: json['name'] as String,
         url: json['url'] as String,

@@ -156,7 +156,10 @@ class KernelManager extends ChangeNotifier {
   ///
   /// [count] 获取的发布数量，默认20条
   /// 返回包含标签、名称、发布时间、下载资源等信息的列表
-  Future<List<KernelReleaseInfo>> getReleaseList(KernelType type, {int count = 20}) async {
+  Future<List<KernelReleaseInfo>> getReleaseList(
+    KernelType type, {
+    int count = 20,
+  }) async {
     HttpClient? client;
     try {
       client = HttpClient();
@@ -176,11 +179,15 @@ class KernelManager extends ChangeNotifier {
             name: item['name'] as String? ?? item['tag_name'] as String,
             publishedAt: item['published_at'] as String? ?? '',
             htmlUrl: item['html_url'] as String? ?? '',
-            assets: assets.map((a) => KernelAssetInfo(
-              name: a['name'] as String,
-              url: a['browser_download_url'] as String,
-              size: a['size'] as int? ?? 0,
-            )).toList(),
+            assets: assets
+                .map(
+                  (a) => KernelAssetInfo(
+                    name: a['name'] as String,
+                    url: a['browser_download_url'] as String,
+                    size: a['size'] as int? ?? 0,
+                  ),
+                )
+                .toList(),
           );
         }).toList();
       }

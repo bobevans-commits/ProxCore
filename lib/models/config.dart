@@ -208,23 +208,23 @@ class NodeConfig {
 
   /// 序列化为 JSON（不包含测速结果）
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'protocol': protocol.name,
-        'address': address,
-        'port': port,
-        'extra': extra,
-      };
+    'id': id,
+    'name': name,
+    'protocol': protocol.name,
+    'address': address,
+    'port': port,
+    'extra': extra,
+  };
 
   /// 从 JSON 反序列化
   factory NodeConfig.fromJson(Map<String, dynamic> json) => NodeConfig(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        protocol: ProxyProtocol.fromString(json['protocol'] as String),
-        address: json['address'] as String,
-        port: json['port'] as int,
-        extra: Map<String, dynamic>.from(json['extra'] as Map? ?? {}),
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    protocol: ProxyProtocol.fromString(json['protocol'] as String),
+    address: json['address'] as String,
+    port: json['port'] as int,
+    extra: Map<String, dynamic>.from(json['extra'] as Map? ?? {}),
+  );
 
   /// 序列化为 JSON 字符串
   String toJsonString() => jsonEncode(toJson());
@@ -316,29 +316,27 @@ class DnsConfig {
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'mode': mode.value,
-        'servers': servers,
-        'fallback_servers': fallbackServers,
-        'remote_resolve': remoteResolve,
-        'doh_url': dohUrl,
-        'dot_server': dotServer,
-      };
+    'mode': mode.value,
+    'servers': servers,
+    'fallback_servers': fallbackServers,
+    'remote_resolve': remoteResolve,
+    'doh_url': dohUrl,
+    'dot_server': dotServer,
+  };
 
   /// 从 JSON 反序列化
   factory DnsConfig.fromJson(Map<String, dynamic> json) => DnsConfig(
-        mode: DnsMode.fromString(json['mode'] as String? ?? 'system'),
-        servers: (json['servers'] as List?)
-                ?.map((e) => e as String)
-                .toList() ??
-            const ['8.8.8.8', '1.1.1.1'],
-        fallbackServers: (json['fallback_servers'] as List?)
-                ?.map((e) => e as String)
-                .toList() ??
-            const ['223.5.5.5', '119.29.29.29'],
-        remoteResolve: json['remote_resolve'] as bool? ?? false,
-        dohUrl: json['doh_url'] as String? ?? 'https://dns.google/dns-query',
-        dotServer: json['dot_server'] as String? ?? 'dns.google',
-      );
+    mode: DnsMode.fromString(json['mode'] as String? ?? 'system'),
+    servers:
+        (json['servers'] as List?)?.map((e) => e as String).toList() ??
+        const ['8.8.8.8', '1.1.1.1'],
+    fallbackServers:
+        (json['fallback_servers'] as List?)?.map((e) => e as String).toList() ??
+        const ['223.5.5.5', '119.29.29.29'],
+    remoteResolve: json['remote_resolve'] as bool? ?? false,
+    dohUrl: json['doh_url'] as String? ?? 'https://dns.google/dns-query',
+    dotServer: json['dot_server'] as String? ?? 'dns.google',
+  );
 }
 
 /// 代理配置数据模型
@@ -384,6 +382,9 @@ class ProxyConfig {
   /// DNS 配置
   final DnsConfig dnsConfig;
 
+  /// 配置覆写：以内核名称为 key 的 JSON 字符串映射
+  final Map<String, String> configOverrides;
+
   ProxyConfig({
     this.kernelType = KernelType.singbox,
     this.localAddress = '127.0.0.1',
@@ -398,6 +399,7 @@ class ProxyConfig {
     this.subRefreshMinutes = 0,
     this.nodes = const [],
     this.dnsConfig = const DnsConfig(),
+    this.configOverrides = const {},
   });
 
   /// 创建代理配置副本，可选择性覆盖部分字段
@@ -415,6 +417,7 @@ class ProxyConfig {
     int? subRefreshMinutes,
     List<NodeConfig>? nodes,
     DnsConfig? dnsConfig,
+    Map<String, String>? configOverrides,
   }) {
     return ProxyConfig(
       kernelType: kernelType ?? this.kernelType,
@@ -430,48 +433,55 @@ class ProxyConfig {
       subRefreshMinutes: subRefreshMinutes ?? this.subRefreshMinutes,
       nodes: nodes ?? this.nodes,
       dnsConfig: dnsConfig ?? this.dnsConfig,
+      configOverrides: configOverrides ?? this.configOverrides,
     );
   }
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'kernel_type': kernelType.name,
-        'local_address': localAddress,
-        'local_port': localPort,
-        'socks_port': socksPort,
-        'http_port': httpPort,
-        'tun_enabled': tunEnabled,
-        'system_proxy': systemProxy,
-        'lan_sharing': lanSharing,
-        'ad_blocking': adBlocking,
-        'smart_node': smartNode,
-        'sub_refresh_minutes': subRefreshMinutes,
-        'nodes': nodes.map((n) => n.toJson()).toList(),
-        'dns_config': dnsConfig.toJson(),
-      };
+    'kernel_type': kernelType.name,
+    'local_address': localAddress,
+    'local_port': localPort,
+    'socks_port': socksPort,
+    'http_port': httpPort,
+    'tun_enabled': tunEnabled,
+    'system_proxy': systemProxy,
+    'lan_sharing': lanSharing,
+    'ad_blocking': adBlocking,
+    'smart_node': smartNode,
+    'sub_refresh_minutes': subRefreshMinutes,
+    'nodes': nodes.map((n) => n.toJson()).toList(),
+    'dns_config': dnsConfig.toJson(),
+    'config_overrides': configOverrides,
+  };
 
   /// 从 JSON 反序列化
   factory ProxyConfig.fromJson(Map<String, dynamic> json) => ProxyConfig(
-        kernelType:
-            KernelType.fromName(json['kernel_type'] as String? ?? 'singbox'),
-        localAddress: json['local_address'] as String? ?? '127.0.0.1',
-        localPort: json['local_port'] as int? ?? 1080,
-        socksPort: json['socks_port'] as int? ?? 1080,
-        httpPort: json['http_port'] as int? ?? 1081,
-        tunEnabled: json['tun_enabled'] as bool? ?? false,
-        systemProxy: json['system_proxy'] as bool? ?? false,
-        lanSharing: json['lan_sharing'] as bool? ?? false,
-        adBlocking: json['ad_blocking'] as bool? ?? false,
-        smartNode: json['smart_node'] as bool? ?? false,
-        subRefreshMinutes: json['sub_refresh_minutes'] as int? ?? 0,
-        nodes: (json['nodes'] as List?)
-                ?.map((n) => NodeConfig.fromJson(n as Map<String, dynamic>))
-                .toList() ??
-            [],
-        dnsConfig: json['dns_config'] != null
-            ? DnsConfig.fromJson(json['dns_config'] as Map<String, dynamic>)
-            : const DnsConfig(),
-      );
+    kernelType: KernelType.fromName(
+      json['kernel_type'] as String? ?? 'singbox',
+    ),
+    localAddress: json['local_address'] as String? ?? '127.0.0.1',
+    localPort: json['local_port'] as int? ?? 1080,
+    socksPort: json['socks_port'] as int? ?? 1080,
+    httpPort: json['http_port'] as int? ?? 1081,
+    tunEnabled: json['tun_enabled'] as bool? ?? false,
+    systemProxy: json['system_proxy'] as bool? ?? false,
+    lanSharing: json['lan_sharing'] as bool? ?? false,
+    adBlocking: json['ad_blocking'] as bool? ?? false,
+    smartNode: json['smart_node'] as bool? ?? false,
+    subRefreshMinutes: json['sub_refresh_minutes'] as int? ?? 0,
+    nodes:
+        (json['nodes'] as List?)
+            ?.map((n) => NodeConfig.fromJson(n as Map<String, dynamic>))
+            .toList() ??
+        [],
+    dnsConfig: json['dns_config'] != null
+        ? DnsConfig.fromJson(json['dns_config'] as Map<String, dynamic>)
+        : const DnsConfig(),
+    configOverrides: Map<String, String>.from(
+      json['config_overrides'] as Map? ?? {},
+    ),
+  );
 }
 
 /// 路由规则数据模型
@@ -543,8 +553,8 @@ class RoutingRule {
 
   /// 预设规则私有构造函数
   const RoutingRule._preset(this.name, this.type, this.match, this.target)
-      : id = '',
-        enabled = true;
+    : id = '',
+      enabled = true;
 
   /// 匹配类型的中文标签
   String get typeLabel {
@@ -607,21 +617,21 @@ class RoutingRule {
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'type': type,
-        'match': match,
-        'target': target,
-        'enabled': enabled,
-      };
+    'id': id,
+    'name': name,
+    'type': type,
+    'match': match,
+    'target': target,
+    'enabled': enabled,
+  };
 
   /// 从 JSON 反序列化
   factory RoutingRule.fromJson(Map<String, dynamic> json) => RoutingRule(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        type: json['type'] as String? ?? 'domain',
-        match: json['match'] as String? ?? '',
-        target: json['target'] as String? ?? 'proxy',
-        enabled: json['enabled'] as bool? ?? true,
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    type: json['type'] as String? ?? 'domain',
+    match: json['match'] as String? ?? '',
+    target: json['target'] as String? ?? 'proxy',
+    enabled: json['enabled'] as bool? ?? true,
+  );
 }

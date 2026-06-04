@@ -97,14 +97,23 @@ class KernelInfo {
   /// [platform] 平台标识
   /// [arch] 架构标识
   /// 返回对应内核的 GitHub Release 下载链接
-  static String buildDownloadUrl(KernelType type, String version, String platform, String arch) {
+  static String buildDownloadUrl(
+    KernelType type,
+    String version,
+    String platform,
+    String arch,
+  ) {
     switch (type) {
       case KernelType.singbox:
-        final archName = platform == 'windows' && arch == 'amd64' ? 'amd64' : arch;
+        final archName = platform == 'windows' && arch == 'amd64'
+            ? 'amd64'
+            : arch;
         return 'https://github.com/SagerNet/sing-box/releases/download/v$version/'
             'sing-box-$version-$platform-$archName.zip';
       case KernelType.mihomo:
-        final archName = arch == 'amd64' ? 'amd64' : (arch == 'arm64' ? 'arm64' : 'amd64');
+        final archName = arch == 'amd64'
+            ? 'amd64'
+            : (arch == 'arm64' ? 'arm64' : 'amd64');
         return 'https://github.com/MetaCubeX/mihomo/releases/download/v$version/'
             'mihomo-$platform-$archName-v$version.gz';
       case KernelType.v2ray:

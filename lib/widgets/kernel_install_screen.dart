@@ -85,11 +85,7 @@ class _KernelInstallScreenState extends State<KernelInstallScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.download,
-                size: 64,
-                color: theme.colorScheme.primary,
-              ),
+              Icon(Icons.download, size: 64, color: theme.colorScheme.primary),
               const SizedBox(height: 24),
               Text(
                 _downloading

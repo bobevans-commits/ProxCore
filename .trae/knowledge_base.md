@@ -26,9 +26,14 @@ main.dart (MultiProvider: KernelManager, ProxyService, SubscriptionService)
 ├── models/config.dart          ProxyConfig/NodeConfig/RoutingRule/DnsConfig
 ├── models/kernel_info.dart     KernelInfo/KernelReleaseInfo
 ├── models/singbox_config.dart  sing-box JSON配置模型
-├── utils/config_adapter.dart   三内核配置适配生成
+├── utils/config_adapter.dart   三内核配置适配入口(向后兼容)
 ├── utils/app_utils.dart        格式化/校验/图标/平台检测/链接解析
-└── widgets/kernel_install_screen.dart  内核安装公共组件(下载进度/重试)
+├── utils/tun_helper.dart       TUN 模式切换工具(检测内核/引导安装/状态通知)
+└── utils/adapters/             配置适配器子模块
+    ├── dns_config_builder.dart     跨内核 DNS 配置生成
+    ├── singbox_adapter.dart        sing-box 内核配置(9 协议)
+    ├── mihomo_adapter.dart         mihomo 内核配置(7 协议)
+    └── v2ray_adapter.dart          v2ray 内核配置(4 协议)
 ```
 
 ## 核心数据模型 (models/config.dart)

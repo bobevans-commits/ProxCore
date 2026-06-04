@@ -88,7 +88,9 @@ class _LogScreenState extends State<LogScreen> {
     }
     if (_searchQuery.isNotEmpty) {
       filtered = filtered
-          .where((log) => log.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .where(
+            (log) => log.toLowerCase().contains(_searchQuery.toLowerCase()),
+          )
           .toList();
     }
     return filtered;
@@ -138,10 +140,18 @@ class _LogScreenState extends State<LogScreen> {
                 },
                 itemBuilder: (ctx) => [
                   const PopupMenuItem(value: LogLevel.all, child: Text('全部')),
-                  const PopupMenuItem(value: LogLevel.info, child: Text('Info')),
                   const PopupMenuItem(
-                      value: LogLevel.warning, child: Text('Warning')),
-                  const PopupMenuItem(value: LogLevel.error, child: Text('Error')),
+                    value: LogLevel.info,
+                    child: Text('Info'),
+                  ),
+                  const PopupMenuItem(
+                    value: LogLevel.warning,
+                    child: Text('Warning'),
+                  ),
+                  const PopupMenuItem(
+                    value: LogLevel.error,
+                    child: Text('Error'),
+                  ),
                 ],
               ),
               IconButton(
@@ -166,10 +176,7 @@ class _LogScreenState extends State<LogScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Text(
-                    '自动滚动',
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  Text('自动滚动', style: theme.textTheme.bodyMedium),
                   Switch(
                     value: _autoScroll,
                     onChanged: (v) => setState(() => _autoScroll = v),
@@ -187,44 +194,41 @@ class _LogScreenState extends State<LogScreen> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                if (index >= filteredLogs.length) return null;
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index >= filteredLogs.length) return null;
 
-                final log = filteredLogs[index];
-                final isError = log.contains('[ERROR]');
-                final isWarning = log.contains('[WARN]');
+              final log = filteredLogs[index];
+              final isError = log.contains('[ERROR]');
+              final isWarning = log.contains('[WARN]');
 
-                return ListTile(
-                  dense: true,
-                  leading: Icon(
-                    isError
-                        ? Icons.error
-                        : isWarning
-                            ? Icons.warning
-                            : Icons.info,
-                    size: 16,
+              return ListTile(
+                dense: true,
+                leading: Icon(
+                  isError
+                      ? Icons.error
+                      : isWarning
+                      ? Icons.warning
+                      : Icons.info,
+                  size: 16,
+                  color: isError
+                      ? Colors.red
+                      : isWarning
+                      ? Colors.orange
+                      : theme.colorScheme.outline,
+                ),
+                title: Text(
+                  log,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
                     color: isError
                         ? Colors.red
                         : isWarning
-                            ? Colors.orange
-                            : theme.colorScheme.outline,
+                        ? Colors.orange
+                        : null,
                   ),
-                  title: Text(
-                    log,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      color: isError
-                          ? Colors.red
-                          : isWarning
-                              ? Colors.orange
-                              : null,
-                    ),
-                  ),
-                );
-              },
-              childCount: filteredLogs.length,
-            ),
+                ),
+              );
+            }, childCount: filteredLogs.length),
           ),
         ],
       ),

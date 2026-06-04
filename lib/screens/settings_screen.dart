@@ -9,8 +9,9 @@ import '../main.dart';
 import '../models/config.dart';
 import '../services/proxy_service.dart';
 import '../services/subscription_service.dart';
-import '../widgets/kernel_install_screen.dart';
+import '../utils/tun_helper.dart';
 import 'kernel_settings_screen.dart';
+import 'override_settings_screen.dart';
 
 /// SettingsScreen - 应用设置页面
 ///
@@ -74,7 +75,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         value: config.tunEnabled,
                         onChanged: (v) =>
-                            _onTunToggle(context, proxyService, v),
+                            TunHelper.onTunToggle(context, proxyService, v),
                       ),
                       SwitchListTile(
                         secondary: const Icon(Icons.settings_ethernet),
@@ -146,6 +147,26 @@ class SettingsScreen extends StatelessWidget {
                         onChanged: (v) {
                           proxyService.updateConfig(
                             config.copyWith(smartNode: v),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.code_rounded),
+                        title: const Text('配置覆写'),
+                        subtitle: Text(
+                          '对内核生成的配置进行 JSON 深度合并覆写',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                            fontSize: 10,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right, size: 18),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OverrideSettingsScreen(),
+                            ),
                           );
                         },
                       ),
@@ -582,35 +603,31 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => SimpleDialog(
         title: const Text('自动刷新间隔'),
-        children: [
-          '未启用',
-          '15 分钟',
-          '30 分钟',
-          '1 小时',
-          '2 小时',
-          '6 小时',
-          '12 小时',
-        ].asMap().entries.map((e) {
-          return SimpleDialogOption(
-            onPressed: () {
-              Navigator.pop(ctx);
-              final minutes = options[e.key];
-              final proxyService = context.read<ProxyService>();
-              proxyService.updateConfig(
-                config.copyWith(subRefreshMinutes: minutes),
+        children: ['未启用', '15 分钟', '30 分钟', '1 小时', '2 小时', '6 小时', '12 小时']
+            .asMap()
+            .entries
+            .map((e) {
+              return SimpleDialogOption(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  final minutes = options[e.key];
+                  final proxyService = context.read<ProxyService>();
+                  proxyService.updateConfig(
+                    config.copyWith(subRefreshMinutes: minutes),
+                  );
+                  final subService = context.read<SubscriptionService>();
+                  subService.setupAutoRefresh(minutes);
+                },
+                child: Row(
+                  children: [
+                    Expanded(child: Text(e.value)),
+                    if (config.subRefreshMinutes == options[e.key])
+                      const Icon(Icons.check, size: 16),
+                  ],
+                ),
               );
-              final subService = context.read<SubscriptionService>();
-              subService.setupAutoRefresh(minutes);
-            },
-            child: Row(
-              children: [
-                Expanded(child: Text(e.value)),
-                if (config.subRefreshMinutes == options[e.key])
-                  const Icon(Icons.check, size: 16),
-              ],
-            ),
-          );
-        }).toList(),
+            })
+            .toList(),
       ),
     );
   }
@@ -698,69 +715,6 @@ class SettingsScreen extends StatelessWidget {
   /// 切换主题模式
   void _showThemePicker(BuildContext context) {
     MyApp.toggleThemeOf(context);
-  }
-
-  /// TUN 模式切换处理
-  ///
-  /// [context] 上下文，[proxyService] 代理服务，[enable] 是否开启 TUN
-  /// 开启时若未安装内核，会弹出对话框引导安装
-  Future<void> _onTunToggle(
-    BuildContext context,
-    ProxyService proxyService,
-    bool enable,
-  ) async {
-    if (!enable) {
-      proxyService.toggleTun(false);
-      return;
-    }
-
-    if (proxyService.isKernelInstalled()) {
-      proxyService.toggleTun(true);
-      return;
-    }
-
-    final kernelType = proxyService.activeKernelType;
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.vpn_lock, size: 32),
-        title: const Text('需要安装内核'),
-        content: Text('TUN 模式需要 ${kernelType.label} 内核支持。当前未检测到已安装的内核，是否前往安装？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'cancel'),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'install'),
-            child: const Text('前往安装'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == 'install' && context.mounted) {
-      final kernelManager = proxyService.kernelManager;
-      final installed = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => KernelInstallScreen(
-            kernelType: kernelType,
-            kernelManager: kernelManager,
-          ),
-        ),
-      );
-
-      if (installed == true && context.mounted) {
-        proxyService.toggleTun(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('TUN 模式已开启'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
   }
 }
 

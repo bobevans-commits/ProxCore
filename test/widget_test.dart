@@ -39,7 +39,10 @@ void main() {
       expect(ProxyProtocol.fromString('vmess'), ProxyProtocol.vmess);
       expect(ProxyProtocol.fromString('vless'), ProxyProtocol.vless);
       expect(ProxyProtocol.fromString('trojan'), ProxyProtocol.trojan);
-      expect(ProxyProtocol.fromString('shadowsocks'), ProxyProtocol.shadowsocks);
+      expect(
+        ProxyProtocol.fromString('shadowsocks'),
+        ProxyProtocol.shadowsocks,
+      );
     });
 
     test('fromString is case insensitive', () {
@@ -194,7 +197,10 @@ void main() {
     });
 
     test('defaultConfig uses custom ports', () {
-      final config = SingboxConfig.defaultConfig(socksPort: 2080, httpPort: 2081);
+      final config = SingboxConfig.defaultConfig(
+        socksPort: 2080,
+        httpPort: 2081,
+      );
       final json = config.toJson();
       final inbounds = json['inbounds'] as List;
 
@@ -236,9 +242,14 @@ void main() {
 
     test('formatDuration formats correctly', () {
       expect(AppUtils.formatDuration(const Duration(seconds: 30)), '30s');
-      expect(AppUtils.formatDuration(const Duration(minutes: 5, seconds: 30)), '5m 30s');
       expect(
-        AppUtils.formatDuration(const Duration(hours: 1, minutes: 30, seconds: 45)),
+        AppUtils.formatDuration(const Duration(minutes: 5, seconds: 30)),
+        '5m 30s',
+      );
+      expect(
+        AppUtils.formatDuration(
+          const Duration(hours: 1, minutes: 30, seconds: 45),
+        ),
         '1h 30m 45s',
       );
     });
@@ -292,7 +303,10 @@ void main() {
       expect(AppUtils.detectProtocol('vless://abc'), ProxyProtocol.vless);
       expect(AppUtils.detectProtocol('trojan://abc'), ProxyProtocol.trojan);
       expect(AppUtils.detectProtocol('ss://abc'), ProxyProtocol.shadowsocks);
-      expect(AppUtils.detectProtocol('hysteria2://abc'), ProxyProtocol.hysteria2);
+      expect(
+        AppUtils.detectProtocol('hysteria2://abc'),
+        ProxyProtocol.hysteria2,
+      );
       expect(AppUtils.detectProtocol('hy2://abc'), ProxyProtocol.hysteria2);
       expect(AppUtils.detectProtocol('hysteria://abc'), ProxyProtocol.hysteria);
       expect(AppUtils.detectProtocol('tuic://abc'), ProxyProtocol.tuic);
@@ -301,7 +315,10 @@ void main() {
     });
 
     test('parseProxyLink throws for unknown protocol', () {
-      expect(() => AppUtils.parseProxyLink('unknown://abc'), throwsFormatException);
+      expect(
+        () => AppUtils.parseProxyLink('unknown://abc'),
+        throwsFormatException,
+      );
     });
   });
 
@@ -312,7 +329,12 @@ void main() {
       protocol: ProxyProtocol.vmess,
       address: '1.2.3.4',
       port: 443,
-      extra: {'uuid': 'test-uuid', 'alterId': 0, 'security': 'auto', 'network': 'tcp'},
+      extra: {
+        'uuid': 'test-uuid',
+        'alterId': 0,
+        'security': 'auto',
+        'network': 'tcp',
+      },
     );
     final testConfig = ProxyConfig(
       kernelType: KernelType.singbox,
@@ -362,14 +384,94 @@ void main() {
 
     test('toSingboxConfig with routing rules', () {
       final rules = [
-        RoutingRule(id: '1', name: 'Block', type: 'domain', match: 'ads.com', target: 'block', enabled: true),
-        RoutingRule(id: '2', name: 'Direct', type: 'ip', match: '10.0.0.0', target: 'direct', enabled: true),
-        RoutingRule(id: '3', name: 'Disabled', type: 'domain', match: 'skip.com', target: 'proxy', enabled: false),
+        RoutingRule(
+          id: '1',
+          name: 'Block',
+          type: 'domain',
+          match: 'ads.com',
+          target: 'block',
+          enabled: true,
+        ),
+        RoutingRule(
+          id: '2',
+          name: 'Direct',
+          type: 'ip',
+          match: '10.0.0.0',
+          target: 'direct',
+          enabled: true,
+        ),
+        RoutingRule(
+          id: '3',
+          name: 'Disabled',
+          type: 'domain',
+          match: 'skip.com',
+          target: 'proxy',
+          enabled: false,
+        ),
       ];
       final config = ConfigAdapter.toSingboxConfig(testConfig, testNode, rules);
       final route = config['route'] as Map<String, dynamic>;
       final routeRules = route['rules'] as List;
       expect(routeRules.length, 2);
+    });
+  });
+
+  group('ConfigAdapter.deepMerge', () {
+    test('空 Map 合并', () {
+      final m1 = <String, dynamic>{};
+      final m2 = <String, dynamic>{'a': 1};
+      final result = ConfigAdapter.deepMerge(m1, m2);
+      expect(result['a'], 1);
+    });
+
+    test('简单 key 覆盖（map2 覆盖 map1）', () {
+      final m1 = <String, dynamic>{'a': 1, 'b': 2};
+      final m2 = <String, dynamic>{'b': 99, 'c': 3};
+      final result = ConfigAdapter.deepMerge(m1, m2);
+      expect(result['a'], 1);
+      expect(result['b'], 99);
+      expect(result['c'], 3);
+    });
+
+    test('嵌套 Map 递归合并', () {
+      final m1 = <String, dynamic>{
+        'a': {'x': 1, 'y': 2},
+      };
+      final m2 = <String, dynamic>{
+        'a': {'y': 99, 'z': 3},
+      };
+      final result = ConfigAdapter.deepMerge(m1, m2);
+      final a = result['a'] as Map<String, dynamic>;
+      expect(a['x'], 1);
+      expect(a['y'], 99);
+      expect(a['z'], 3);
+    });
+
+    test('List/基本类型直接替换不递归', () {
+      final m1 = <String, dynamic>{
+        'list': [1, 2, 3],
+      };
+      final m2 = <String, dynamic>{
+        'list': [4, 5],
+      };
+      final result = ConfigAdapter.deepMerge(m1, m2);
+      expect(result['list'], [4, 5]);
+    });
+
+    test('不修改原 Map', () {
+      final m1 = <String, dynamic>{'a': 1};
+      final m2 = <String, dynamic>{'b': 2};
+      ConfigAdapter.deepMerge(m1, m2);
+      expect(m1.containsKey('b'), false);
+      expect(m2.containsKey('a'), false);
+    });
+
+    test('非字符串 key 转换为字符串', () {
+      final m1 = <dynamic, dynamic>{1: 'a'};
+      final m2 = <dynamic, dynamic>{2: 'b'};
+      final result = ConfigAdapter.deepMerge(m1, m2);
+      expect(result['1'], 'a');
+      expect(result['2'], 'b');
     });
   });
 }

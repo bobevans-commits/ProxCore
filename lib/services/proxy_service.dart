@@ -196,7 +196,9 @@ class ProxyService extends ChangeNotifier {
       if (!hasAdmin) {
         final granted = await AdminService.requestAdminPrivileges();
         if (!granted) {
-          _addLog('[ProxyService] TUN requires admin privileges, request denied');
+          _addLog(
+            '[ProxyService] TUN requires admin privileges, request denied',
+          );
           return false;
         }
       }
@@ -622,6 +624,26 @@ class ProxyService extends ChangeNotifier {
         configJson = ConfigAdapter.toMihomoConfig(_config, node, _routingRules);
       case KernelType.v2ray:
         configJson = ConfigAdapter.toV2rayConfig(_config, node, _routingRules);
+    }
+
+    final kernelName = _config.kernelType.name;
+    final overrideStr = _config.configOverrides[kernelName];
+    if (overrideStr != null && overrideStr.trim().isNotEmpty) {
+      try {
+        final overrideJson = jsonDecode(overrideStr);
+        if (overrideJson is Map) {
+          configJson = ConfigAdapter.deepMerge(configJson, overrideJson);
+          _addLog(
+            '[ProxyService] Configuration override applied for $kernelName',
+          );
+        } else {
+          _addLog(
+            '[ProxyService] Configuration override failed: root must be a JSON object',
+          );
+        }
+      } catch (e) {
+        _addLog('[ProxyService] Configuration override syntax error: $e');
+      }
     }
 
     await file.writeAsString(

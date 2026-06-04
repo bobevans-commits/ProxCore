@@ -15,11 +15,7 @@ class NodeEditorScreen extends StatefulWidget {
   /// 保存回调，传入编辑后的节点配置
   final void Function(NodeConfig) onSave;
 
-  const NodeEditorScreen({
-    super.key,
-    this.node,
-    required this.onSave,
-  });
+  const NodeEditorScreen({super.key, this.node, required this.onSave});
 
   @override
   State<NodeEditorScreen> createState() => _NodeEditorScreenState();
@@ -53,7 +49,9 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
     final node = widget.node;
     _nameController = TextEditingController(text: node?.name ?? '');
     _addressController = TextEditingController(text: node?.address ?? '');
-    _portController = TextEditingController(text: (node?.port ?? 443).toString());
+    _portController = TextEditingController(
+      text: (node?.port ?? 443).toString(),
+    );
     _selectedProtocol = node?.protocol ?? ProxyProtocol.vmess;
 
     if (node?.extra != null) {
@@ -71,10 +69,7 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
   void _ensureExtraControllers() {
     final requiredFields = _getRequiredFields(_selectedProtocol);
     for (final field in requiredFields) {
-      _extraControllers.putIfAbsent(
-        field,
-        () => TextEditingController(),
-      );
+      _extraControllers.putIfAbsent(field, () => TextEditingController());
     }
   }
 
@@ -182,10 +177,7 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
       appBar: AppBar(
         title: Text(widget.node == null ? '添加节点' : '编辑节点'),
         actions: [
-          FilledButton(
-            onPressed: _save,
-            child: const Text('保存'),
-          ),
+          FilledButton(onPressed: _save, child: const Text('保存')),
           const SizedBox(width: 8),
         ],
       ),
@@ -209,11 +201,14 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: ProxyProtocol.values
-                          .map((p) => DropdownMenuItem(
-                                value: p,
-                                child: Text(
-                                    '${AppUtils.protocolIcon(p)} ${p.label}'),
-                              ))
+                          .map(
+                            (p) => DropdownMenuItem(
+                              value: p,
+                              child: Text(
+                                '${AppUtils.protocolIcon(p)} ${p.label}',
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         if (value != null) {
@@ -271,8 +266,10 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${_selectedProtocol.label} 配置',
-                        style: theme.textTheme.titleMedium),
+                    Text(
+                      '${_selectedProtocol.label} 配置',
+                      style: theme.textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 16),
                     ..._getRequiredFields(_selectedProtocol).map(
                       (field) => Padding(
@@ -285,8 +282,8 @@ class _NodeEditorScreenState extends State<NodeEditorScreen> {
                           ),
                           obscureText:
                               field.contains('password') ||
-                                  field.contains('privateKey') ||
-                                  field.contains('Key'),
+                              field.contains('privateKey') ||
+                              field.contains('Key'),
                         ),
                       ),
                     ),

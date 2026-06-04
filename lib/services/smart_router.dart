@@ -53,10 +53,9 @@ class NodeScore {
   });
 
   /// 连接稳定性比率（0.0~1.0）
-  double get stability =>
-      successfulConnects + failedConnects > 0
-          ? successfulConnects / (successfulConnects + failedConnects)
-          : 0;
+  double get stability => successfulConnects + failedConnects > 0
+      ? successfulConnects / (successfulConnects + failedConnects)
+      : 0;
 
   /// 创建节点评分的副本，可选择性更新部分字段
   NodeScore copyWith({
@@ -80,25 +79,26 @@ class NodeScore {
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'node_id': nodeId,
-        'successful_connects': successfulConnects,
-        'failed_connects': failedConnects,
-        'avg_latency_ms': avgLatencyMs,
-        'avg_download_speed': avgDownloadSpeed,
-        'last_used': lastUsed.toIso8601String(),
-        'score': score,
-      };
+    'node_id': nodeId,
+    'successful_connects': successfulConnects,
+    'failed_connects': failedConnects,
+    'avg_latency_ms': avgLatencyMs,
+    'avg_download_speed': avgDownloadSpeed,
+    'last_used': lastUsed.toIso8601String(),
+    'score': score,
+  };
 
   /// 从 JSON 反序列化
   factory NodeScore.fromJson(Map<String, dynamic> json) => NodeScore(
-        nodeId: json['node_id'] as String,
-        successfulConnects: json['successful_connects'] as int? ?? 0,
-        failedConnects: json['failed_connects'] as int? ?? 0,
-        avgLatencyMs: (json['avg_latency_ms'] as num?)?.toDouble() ?? 0,
-        avgDownloadSpeed: (json['avg_download_speed'] as num?)?.toDouble() ?? 0,
-        lastUsed: DateTime.tryParse(json['last_used'] as String? ?? '') ?? DateTime.now(),
-        score: (json['score'] as num?)?.toDouble() ?? 0,
-      );
+    nodeId: json['node_id'] as String,
+    successfulConnects: json['successful_connects'] as int? ?? 0,
+    failedConnects: json['failed_connects'] as int? ?? 0,
+    avgLatencyMs: (json['avg_latency_ms'] as num?)?.toDouble() ?? 0,
+    avgDownloadSpeed: (json['avg_download_speed'] as num?)?.toDouble() ?? 0,
+    lastUsed:
+        DateTime.tryParse(json['last_used'] as String? ?? '') ?? DateTime.now(),
+    score: (json['score'] as num?)?.toDouble() ?? 0,
+  );
 }
 
 /// 智能路由服务 — 基于历史数据自动选择最优节点
@@ -197,7 +197,8 @@ class SmartRouter extends ChangeNotifier {
       );
     } else {
       final alpha = 0.3;
-      final newAvg = existing.avgDownloadSpeed * (1 - alpha) + bytesPerSec * alpha;
+      final newAvg =
+          existing.avgDownloadSpeed * (1 - alpha) + bytesPerSec * alpha;
       _scores[node.id] = existing.copyWith(
         avgDownloadSpeed: newAvg,
         score: _calculateScore(
@@ -254,8 +255,7 @@ class SmartRouter extends ChangeNotifier {
           : 25.0;
       final historyScore = s?.score ?? 25.0;
       return MapEntry(node, historyScore * 0.6 + latencyScore * 0.4);
-    }).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    }).toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return scored.first.key;
   }
@@ -263,22 +263,24 @@ class SmartRouter extends ChangeNotifier {
   /// 获取节点排名列表
   ///
   /// 返回按评分降序排列的 (节点, 评分) 列表
-  List<MapEntry<NodeConfig, NodeScore?>> getRankedNodes(List<NodeConfig> nodes) {
-    final ranked = nodes.map((node) {
-      return MapEntry(node, _scores[node.id]);
-    }).toList()
-      ..sort((a, b) {
-        final sa = a.value?.score ?? 0;
-        final sb = b.value?.score ?? 0;
-        return sb.compareTo(sa);
-      });
+  List<MapEntry<NodeConfig, NodeScore?>> getRankedNodes(
+    List<NodeConfig> nodes,
+  ) {
+    final ranked =
+        nodes.map((node) {
+          return MapEntry(node, _scores[node.id]);
+        }).toList()..sort((a, b) {
+          final sa = a.value?.score ?? 0;
+          final sb = b.value?.score ?? 0;
+          return sb.compareTo(sa);
+        });
     return ranked;
   }
 
   /// 序列化为 JSON
   Map<String, dynamic> toJson() => {
-        'scores': _scores.map((k, v) => MapEntry(k, v.toJson())),
-      };
+    'scores': _scores.map((k, v) => MapEntry(k, v.toJson())),
+  };
 
   /// 从 JSON 反序列化
   void loadFromJson(Map<String, dynamic> json) {
@@ -286,7 +288,9 @@ class SmartRouter extends ChangeNotifier {
     if (scoresData == null) return;
     _scores.clear();
     for (final entry in scoresData.entries) {
-      _scores[entry.key] = NodeScore.fromJson(entry.value as Map<String, dynamic>);
+      _scores[entry.key] = NodeScore.fromJson(
+        entry.value as Map<String, dynamic>,
+      );
     }
     notifyListeners();
   }

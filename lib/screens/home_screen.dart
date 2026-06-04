@@ -8,7 +8,7 @@ import '../models/config.dart';
 import '../services/proxy_service.dart';
 import '../services/subscription_service.dart';
 import '../utils/app_utils.dart';
-import '../widgets/kernel_install_screen.dart';
+import '../utils/tun_helper.dart';
 import 'settings_screen.dart';
 
 /// HomeScreen - 应用主页（仪表板）
@@ -274,13 +274,10 @@ class _StatusHero extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  if (isRunning && uptime != null)
-                    _UptimeText(uptime: uptime!),
+                  if (isRunning && uptime != null) _UptimeText(uptime: uptime!),
                   if (activeNode == null && !isRunning)
                     Text(
-                      nodeCount > 0
-                          ? '点击启动连接 $nodeCount 个节点'
-                          : '添加节点开始使用',
+                      nodeCount > 0 ? '点击启动连接 $nodeCount 个节点' : '添加节点开始使用',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.outline,
                       ),
@@ -764,67 +761,6 @@ class _QuickSettings extends StatelessWidget {
 
   const _QuickSettings({required this.proxyService});
 
-  /// TUN 模式切换处理
-  ///
-  /// [context] 上下文，[enable] 是否开启 TUN
-  /// 开启时若未安装内核，会弹出对话框引导安装
-  Future<void> _onTunToggle(BuildContext context, bool enable) async {
-    if (!enable) {
-      proxyService.toggleTun(false);
-      return;
-    }
-
-    if (proxyService.isKernelInstalled()) {
-      proxyService.toggleTun(true);
-      return;
-    }
-
-    final kernelType = proxyService.activeKernelType;
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.vpn_lock, size: 32),
-        title: const Text('需要安装内核'),
-        content: Text(
-          'TUN 模式需要 ${kernelType.label} 内核支持。当前未检测到已安装的内核，是否前往安装？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'cancel'),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'install'),
-            child: const Text('前往安装'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == 'install' && context.mounted) {
-      final kernelManager = proxyService.kernelManager;
-      final installed = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => KernelInstallScreen(
-            kernelType: kernelType,
-            kernelManager: kernelManager,
-          ),
-        ),
-      );
-
-      if (installed == true && context.mounted) {
-        proxyService.toggleTun(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('TUN 模式已开启'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -896,7 +832,7 @@ class _QuickSettings extends StatelessWidget {
                 ),
               ),
               value: config.tunEnabled,
-              onChanged: (v) => _onTunToggle(context, v),
+              onChanged: (v) => TunHelper.onTunToggle(context, proxyService, v),
             ),
             const Divider(height: 1, indent: 32),
             SwitchListTile(
