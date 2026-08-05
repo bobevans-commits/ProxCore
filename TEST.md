@@ -177,21 +177,16 @@ flutter analyze         # 静态分析
 
 ## 持续集成 (CI)
 
-### GitHub Actions (`.github/workflows/ci.yml`)
+### GitHub Actions (`.github/workflows/`)
 
-```yaml
-name: CI
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-      - run: flutter pub get
-      - run: flutter test
-      - run: flutter analyze
-```
+仓库实际包含以下工作流（`ci.yml` 不存在）：
+
+- `android-build.yml` — Android APK/AAB 构建（push/PR/tag 触发）
+- `windows-build.yml` — Windows 构建打包（push/PR/tag 触发）
+- `multi-platform-build.yml` — Windows/macOS/Linux/Android 多平台构建（push/tag 触发）
+- `release.yml` — tag 版本发布（push main / 手动触发）
+
+各工作流均含 `flutter pub get`、`flutter test`、`flutter analyze` 步骤（详见对应 yml）。
 
 ## 测试覆盖率
 

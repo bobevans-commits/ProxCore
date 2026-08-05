@@ -36,13 +36,14 @@ proxcore/
 │   ├── models/                                # 数据模型层
 │   │   ├── config.dart                        # KernelType/KernelStatus/NodeConfig/ProxyConfig
 │   │   ├── kernel_info.dart                   # KernelInfo/KernelRelease/DownloadProgress
-│   │   └── singbox_config.dart                # SingBoxConfig 完整配置模型 (600+ 行)
+│   │   └── singbox_config.dart                # SingBoxConfig 配置模型 (SingboxConfig/Outbound/Route/RouteRule/Inbound)
 │   ├── screens/                               # 页面层
 │   │   ├── home_screen.dart                   # 主页 (Dashboard/Nodes/Routing/DNS/Settings)
 │   │   ├── subscriptions_screen.dart          # 订阅管理
 │   │   ├── kernel_settings_screen.dart        # 内核管理
 │   │   ├── node_editor_screen.dart            # 节点编辑器
 │   │   ├── routing_editor_screen.dart         # 路由规则编辑器
+│   │   ├── override_settings_screen.dart      # 配置覆写编辑器 (JSON 语法校验/格式化)
 │   │   ├── settings_screen.dart               # 设置页面 (内核/网络/规则/DNS/端口/数据/外观/关于)
 │   │   └── log_screen.dart                    # 日志查看器
 │   ├── services/                              # 服务层 (核心业务逻辑)
@@ -59,12 +60,19 @@ proxcore/
 │   │   └── webdav_sync_service.dart           # WebDAV同步服务 (云端备份/恢复)
 │   ├── utils/                                 # 工具层
 │   │   ├── app_utils.dart                     # 通用工具函数
-│   │   └── config_adapter.dart                # 配置格式适配器 (sing-box/mihomo/v2ray)
+│   │   ├── tun_helper.dart                    # TUN 模式开关辅助 (未装内核时引导安装)
+│   │   ├── config_adapter.dart                # 适配器统一入口 (toSingbox/toMihomo/toV2ray/deepMerge)
+│   │   └── adapters/                          # 内核配置适配器实现
+│   │       ├── singbox_adapter.dart           # sing-box 配置生成 (基于 SingboxConfig 模型)
+│   │       ├── mihomo_adapter.dart            # mihomo (Clash) 配置生成
+│   │       ├── v2ray_adapter.dart             # v2ray (Xray) 配置生成
+│   │       └── dns_config_builder.dart        # 三内核 DNS 配置构建
 │   └── widgets/                               # 可复用组件
 │       ├── glass_theme.dart                   # 毛玻璃主题组件 (GlassTheme/GlassCard/GlassButton/GlassSwitch)
-│       └── proxy_link_importer.dart           # 代理链接导入器
-├── android/                                   # Android 原生代码
-│   └── app/src/main/kotlin/.../               # MainActivity/ProxyService/VpnServiceImpl
+│       ├── proxy_link_importer.dart           # 代理链接导入器
+│       ├── kernel_install_screen.dart         # 内核安装引导页 (自动下载/进度/重试)
+│       └── node_list_sheet.dart               # 节点列表底部弹窗 (排序/筛选/测速/批量删除)
+├── android/                                   # Android 平台 (仅 Flutter 模板 MainActivity，无原生业务代码)
 ├── assets/
 │   ├── bin/                                   # 内核二进制文件目录
 │   └── icons/                                 # 图标资源
@@ -226,16 +234,14 @@ Clash API 服务，通过 WebSocket 和 RESTful API 与代理内核通信。
 
 ### 7. SingBoxConfig (lib/models/singbox_config.dart)
 
-完整的 sing-box 配置数据模型，600+ 行，包含:
+sing-box 配置数据模型，提供不可变模型类，序列化后可直接作为 sing-box 配置文件使用:
 
-- `SingBoxConfig` — 根配置 (log/inbounds/outbounds/route/dns/experimental)
-- `Inbound` — 入站 (mixed/socks/http 等)
-- `Outbound` — 出站/协议 (vmess/vless/trojan/shadowsocks/hysteria2/tuic/wireguard/selector/urltest/direct/block)
-- `TlsConfig` / `RealityConfig` — TLS 和 REALITY 配置
-- `TransportConfig` — 传输层 (ws/grpc/http/quic)
-- `RouteConfig` / `RuleConfig` — 路由规则
-- `DnsConfig` / `DnsServer` / `DnsRule` — DNS 配置
-- `TunConfig` / `ClashApiConfig` — TUN 和 Clash API
+- `SingboxConfig` — 根配置 (log/inbounds/outbounds/route/experimental)
+- `SingboxInbound` — 入站 (socks/http/mixed/tun)
+- `SingboxOutbound` — 出站 (vmess/vless/trojan/shadowsocks/hysteria2/tuic/wireguard/urltest/direct/block，协议特定参数放在 options)
+- `SingboxRoute` / `SingboxRouteRule` — 路由规则 (domain/ip/geoip/geosite/process/protocol/port)
+
+注：协议特定配置（TLS/REALITY/传输层等）通过 `SingboxOutbound.options`（Map）承载，未建模为独立类；具体生成逻辑在 `lib/utils/adapters/singbox_adapter.dart`。
 
 ### 8. SubscriptionService (lib/services/subscription_service.dart)
 
