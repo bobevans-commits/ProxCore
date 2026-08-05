@@ -76,26 +76,20 @@ proxcore/
 ├── assets/
 │   ├── bin/                                   # 内核二进制文件目录
 │   └── icons/                                 # 图标资源
-├── scripts/                                   # 构建脚本
-│   ├── build_linux.sh                         # Linux 构建
-│   ├── build_windows.ps1                      # Windows 构建
-│   ├── create_dmg.sh                          # macOS DMG 打包
+├── scripts/                                   # 辅助脚本（构建逻辑在 .github/workflows 的 CI 中）
 │   └── download_kernels.sh                    # 内核下载脚本
 ├── test/                                      # 测试
-│   ├── proxy_service_test.dart                # 服务层 + 模型层单元测试
-│   └── widget_test.dart                       # Widget 测试
+│   ├── widget_test.dart                       # 模型/工具类/ConfigAdapter 单元测试
+│   ├── singbox_adapter_test.dart              # sing-box 适配器测试
+│   ├── mihomo_v2ray_adapter_test.dart         # mihomo/v2ray 适配器测试
+│   ├── dns_config_builder_test.dart           # DNS 配置构建器测试
+│   └── smart_router_test.dart                 # 智能路由评分算法测试
 ├── .github/workflows/                         # CI/CD 工作流
-│   ├── ci.yml                                 # 主 CI (分析/测试/构建/安全扫描)
 │   ├── android-build.yml                      # Android 构建
 │   ├── windows-build.yml                      # Windows 构建
-│   ├── macos-build.yml                        # macOS 构建
-│   ├── linux-build.yml                        # Linux 构建
-│   ├── multi-platform-build.yml               # 多平台构建
-│   ├── release.yml                            # 发布工作流
-│   ├── code-quality.yml                       # 代码质量
-│   └── stale.yml                              # Issue 过期管理
+│   ├── multi-platform-build.yml               # Windows/macOS/Linux/Android 多平台构建
+│   └── release.yml                            # tag 版本发布
 ├── pubspec.yaml                               # Flutter 依赖配置
-└── build.ps1                                  # Windows 构建脚本
 ```
 
 ## 架构模式

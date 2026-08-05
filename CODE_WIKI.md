@@ -131,14 +131,14 @@ proxcore/
 ├── assets/
 │   ├── bin/                                         # 内核二进制文件目录
 │   └── icons/                                       # 图标资源
-├── scripts/                                         # 构建脚本
-│   ├── build_linux.sh
-│   ├── build_windows.ps1
-│   ├── create_dmg.sh
-│   └── download_kernels.sh
+├── scripts/                                         # 辅助脚本
+│   └── download_kernels.sh                          # 内核下载脚本
 ├── test/                                            # 测试
-│   ├── proxy_service_test.dart
-│   └── widget_test.dart
+│   ├── widget_test.dart                             # 模型/工具类/ConfigAdapter 单元测试
+│   ├── singbox_adapter_test.dart                    # sing-box 适配器测试
+│   ├── mihomo_v2ray_adapter_test.dart               # mihomo/v2ray 适配器测试
+│   ├── dns_config_builder_test.dart                 # DNS 配置构建器测试
+│   └── smart_router_test.dart                       # 智能路由评分算法测试
 ├── .github/workflows/                               # CI/CD 工作流
 └── pubspec.yaml                                     # Flutter 依赖配置
 ```
@@ -1029,15 +1029,10 @@ flutter build apk --release
 
 | 工作流 | 文件 | 说明 |
 |--------|------|------|
-| CI | `ci.yml` | 主 CI: 分析/测试/构建/安全扫描 |
-| Android | `android-build.yml` | Android 构建 |
-| Windows | `windows-build.yml` | Windows 构建 |
-| macOS | `macos-build.yml` | macOS 构建 |
-| Linux | `linux-build.yml` | Linux 构建 |
-| 多平台 | `multi-platform-build.yml` | 多平台联合构建 |
-| 发布 | `release.yml` | 版本发布 |
-| 代码质量 | `code-quality.yml` | 格式化 + 分析 |
-| Issue 过期 | `stale.yml` | 自动关闭过期 Issue |
+| Android | `android-build.yml` | Android APK/AAB 构建 |
+| Windows | `windows-build.yml` | Windows 构建打包 |
+| 多平台 | `multi-platform-build.yml` | Windows/macOS/Linux/Android 多平台联合构建 |
+| 发布 | `release.yml` | tag 版本发布 |
 
 ---
 
