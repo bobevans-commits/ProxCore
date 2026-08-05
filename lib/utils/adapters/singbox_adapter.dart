@@ -73,6 +73,10 @@ class SingboxAdapter {
     }
 
     for (final r in routingRules.where((r) => r.enabled)) {
+      // 端口规则解析失败时跳过该条规则，避免生成端口 0 的无效配置
+      if (r.type == 'port' && int.tryParse(r.match) == null) {
+        continue;
+      }
       rules.add(
         SingboxRouteRule(
           outbound: r.target,
@@ -84,7 +88,7 @@ class SingboxAdapter {
           geosite: r.type == 'geosite' ? [r.match] : [],
           process: r.type == 'process' ? [r.match] : [],
           protocol: r.type == 'protocol' ? [r.match] : [],
-          port: r.type == 'port' ? [int.tryParse(r.match) ?? 0] : [],
+          port: r.type == 'port' ? [int.parse(r.match)] : [],
         ),
       );
     }
@@ -92,20 +96,15 @@ class SingboxAdapter {
     final clashApi = {
       'clash_api': {
         'external_controller': proxyConfig.lanSharing
-            ? '0.0.0.0:9090'
-            : '127.0.0.1:9090',
+            ? '0.0.0.0:${proxyConfig.clashApiPort}'
+            : '127.0.0.1:${proxyConfig.clashApiPort}',
         'secret': '',
       },
     };
 
     final experimental = <String, dynamic>{...clashApi};
-    if (proxyConfig.tunEnabled) {
-      experimental['tun'] = {
-        'stack': 'system',
-        'auto_route': true,
-        'strict_route': true,
-      };
-    }
+    // 注意：TUN 配置通过下方 inbounds 中的 tun-in 入站生效，
+    // 这里不再重复写入 experimental（sing-box 无此字段）
 
     final listenAddr = proxyConfig.lanSharing
         ? '0.0.0.0'
@@ -226,8 +225,12 @@ class SingboxAdapter {
             'insecure': extra['allowInsecure'] == true,
             if (extra['alpn'] != null)
               'alpn': (extra['alpn'] as String).split(','),
-            if (extra['fingerprint'] != null)
-              'utls': {'enabled': true, 'fingerprint': extra['fingerprint']},
+            // reality 强制要求 utls.fingerprint，未配置时使用默认值
+            if (security == 'reality' || extra['fingerprint'] != null)
+              'utls': {
+                'enabled': true,
+                'fingerprint': extra['fingerprint'] ?? 'chrome',
+              },
           };
 
           // Reality 配置
@@ -378,6 +381,8 @@ class SingboxAdapter {
             'tls': {
               'enabled': true,
               'server_name': extra['sni'] ?? node.address,
+              // sing-box naive 要求 alpn http/1.1，缺失会导致握手失败
+              'alpn': ['http/1.1'],
             },
           },
         );

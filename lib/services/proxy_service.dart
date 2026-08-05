@@ -443,7 +443,7 @@ class ProxyService extends ChangeNotifier {
         if (_config.systemProxy) {
           await _applySystemProxy();
         }
-        _clashApi?.configure(apiUrl: 'http://127.0.0.1:9090');
+        _clashApi?.configure(apiUrl: 'http://127.0.0.1:${_config.clashApiPort}');
         _clashApi?.connect();
         _smartRouter?.recordConnect(node, success: true);
       }

@@ -74,8 +74,13 @@ class MihomoAdapter {
 
     return {
       'mixed-port': proxyConfig.localPort,
-      'socks-port': proxyConfig.socksPort,
-      'port': proxyConfig.httpPort,
+      if (proxyConfig.socksPort != proxyConfig.localPort)
+        'socks-port': proxyConfig.socksPort,
+      if (proxyConfig.httpPort != proxyConfig.localPort)
+        'port': proxyConfig.httpPort,
+      'external-controller': proxyConfig.lanSharing
+          ? '0.0.0.0:${proxyConfig.clashApiPort}'
+          : '127.0.0.1:${proxyConfig.clashApiPort}',
       'allow-lan': proxyConfig.lanSharing,
       'bind-address': proxyConfig.lanSharing ? '*' : '127.0.0.1',
       'mode': 'rule',

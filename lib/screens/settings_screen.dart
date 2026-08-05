@@ -638,6 +638,7 @@ class SettingsScreen extends StatelessWidget {
   void _showPortSettings(BuildContext context, ProxyConfig config) {
     final socksCtrl = TextEditingController(text: '${config.socksPort}');
     final httpCtrl = TextEditingController(text: '${config.httpPort}');
+    final clashCtrl = TextEditingController(text: '${config.clashApiPort}');
     final addrCtrl = TextEditingController(text: config.localAddress);
 
     showDialog(
@@ -683,6 +684,17 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: clashCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Clash API 端口',
+                helperText: '内核外部控制器端口，用于实时流量/日志监听',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -694,6 +706,7 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () {
               final socks = int.tryParse(socksCtrl.text) ?? config.socksPort;
               final http = int.tryParse(httpCtrl.text) ?? config.httpPort;
+              final clash = int.tryParse(clashCtrl.text) ?? config.clashApiPort;
               context.read<ProxyService>().updateConfig(
                 config.copyWith(
                   localAddress: addrCtrl.text.isEmpty
@@ -701,6 +714,7 @@ class SettingsScreen extends StatelessWidget {
                       : addrCtrl.text,
                   socksPort: socks.clamp(1, 65535),
                   httpPort: http.clamp(1, 65535),
+                  clashApiPort: clash.clamp(1, 65535),
                 ),
               );
               Navigator.pop(ctx);

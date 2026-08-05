@@ -18,7 +18,7 @@ class DnsConfigBuilder {
   ///
   /// 包含：
   /// - servers: DNS 服务器列表（remote + local fallback）
-  /// - rules: 出口 DNS 规则
+  /// - rules: 出口 DNS 规则（仅当存在 fallback 时输出，避免引用不存在的 tag）
   /// - strategy: 解析策略（ipv4_only 或 prefer_ipv4）
   ///
   /// [dns] DNS 配置对象（包含模式、服务器列表、DoH/DoT 等）
@@ -33,48 +33,39 @@ class DnsConfigBuilder {
         break;
       case DnsMode.custom:
         for (final s in dns.servers) {
-          servers.add({
-            'address': s,
-            'tag': 'remote_${s.replaceAll('.', '_')}',
-          });
-        }
-        for (final s in dns.fallbackServers) {
-          fallback.add({
-            'address': s,
-            'tag': 'local_${s.replaceAll('.', '_')}',
-          });
+          servers.add({'address': s, 'tag': _serverTag('remote', s)});
         }
       case DnsMode.doh:
         servers.add({'address': dns.dohUrl, 'tag': 'remote_doh'});
-        for (final s in dns.fallbackServers) {
-          fallback.add({
-            'address': s,
-            'tag': 'local_${s.replaceAll('.', '_')}',
-          });
-        }
       case DnsMode.dot:
         servers.add({'address': 'tls://${dns.dotServer}', 'tag': 'remote_dot'});
-        for (final s in dns.fallbackServers) {
-          fallback.add({
-            'address': s,
-            'tag': 'local_${s.replaceAll('.', '_')}',
-          });
-        }
+    }
+
+    // 备用 DNS 各模式共用
+    for (final s in dns.fallbackServers) {
+      fallback.add({'address': s, 'tag': _serverTag('local', s)});
     }
 
     return {
       'dns': {
         'servers': [...servers, ...fallback],
-        'rules': [
-          {
-            'outbound': 'any',
-            'server': fallback.isNotEmpty ? fallback.first['tag'] : 'local',
-          },
-        ],
+        if (fallback.isNotEmpty)
+          'rules': [
+            {'outbound': 'any', 'server': fallback.first['tag']},
+          ],
         'strategy': dns.remoteResolve ? 'prefer_ipv4' : 'ipv4_only',
         'independent_cache': true,
       },
     };
+  }
+
+  /// 生成合法的 sing-box server tag
+  ///
+  /// 服务器地址可能包含 IPv6 冒号、端口等字符，
+  /// 而 sing-box 的 tag 仅允许字母数字下划线横线，其余字符替换为下划线
+  static String _serverTag(String prefix, String address) {
+    final sanitized = address.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+    return '${prefix}_$sanitized';
   }
 
   /// 构建 mihomo 风格的 DNS 配置

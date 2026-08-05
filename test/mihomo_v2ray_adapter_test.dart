@@ -196,8 +196,10 @@ void main() {
       );
       final mihomo = MihomoAdapter.toConfig(config, null, []);
       expect(mihomo['mixed-port'], 1080);
-      expect(mihomo['socks-port'], 1080);
+      // socksPort 与 mixed-port 相同时不重复输出，避免内核启动报错
+      expect(mihomo['socks-port'], isNull);
       expect(mihomo['port'], 1081);
+      expect(mihomo['external-controller'], '127.0.0.1:9090');
       expect(mihomo['mode'], 'rule');
     });
 

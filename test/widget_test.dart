@@ -363,8 +363,10 @@ void main() {
     test('toMihomoConfig produces valid mihomo config', () {
       final config = ConfigAdapter.toMihomoConfig(testConfig, testNode, []);
       expect(config['mixed-port'], 1080);
-      expect(config['socks-port'], 1080);
+      // socksPort 与 mixed-port 相同（默认 1080）时不重复输出
+      expect(config['socks-port'], isNull);
       expect(config['port'], 1081);
+      expect(config['external-controller'], '127.0.0.1:9090');
       expect(config['mode'], 'rule');
       expect(config['rules'], isNotNull);
     });

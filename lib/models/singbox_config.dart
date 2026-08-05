@@ -98,6 +98,29 @@ class SingboxRouteRule {
     if (port.isNotEmpty) map['port'] = port;
     return map;
   }
+
+  /// 从 JSON 反序列化（与 toJson 的字段名一一对应）
+  factory SingboxRouteRule.fromJson(Map<String, dynamic> json) =>
+      SingboxRouteRule(
+        outbound: json['outbound'] as String? ?? 'direct',
+        domain: _stringList(json['domain']),
+        domainKeyword: _stringList(json['domain_keyword']),
+        domainSuffix: _stringList(json['domain_suffix']),
+        ip: _stringList(json['ip_cidr']),
+        geoip: _stringList(json['geoip']),
+        geosite: _stringList(json['geosite']),
+        process: _stringList(json['process_name']),
+        protocol: _stringList(json['protocol']),
+        port: _intList(json['port']),
+      );
+
+  /// 将 JSON 中的列表安全转换为 String 列表
+  static List<String> _stringList(Object? value) =>
+      (value as List?)?.map((e) => e as String).toList() ?? [];
+
+  /// 将 JSON 中的列表安全转换为 int 列表
+  static List<int> _intList(Object? value) =>
+      (value as List?)?.map((e) => e as int).toList() ?? [];
 }
 
 /// SingboxRoute - sing-box 路由配置
@@ -227,18 +250,8 @@ class SingboxConfig {
             rules:
                 (json['route']['rules'] as List?)
                     ?.map(
-                      (r) => SingboxRouteRule(
-                        outbound: r['outbound'] as String? ?? 'direct',
-                        domain:
-                            (r['domain'] as List?)
-                                ?.map((d) => d as String)
-                                .toList() ??
-                            [],
-                        ip:
-                            (r['ip_cidr'] as List?)
-                                ?.map((i) => i as String)
-                                .toList() ??
-                            [],
+                      (r) => SingboxRouteRule.fromJson(
+                        r as Map<String, dynamic>,
                       ),
                     )
                     .toList() ??

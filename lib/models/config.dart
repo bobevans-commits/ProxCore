@@ -358,6 +358,9 @@ class ProxyConfig {
   /// HTTP 代理端口
   final int httpPort;
 
+  /// Clash API 外部控制器端口（用于实时流量/日志监听）
+  final int clashApiPort;
+
   /// 是否启用 TUN 模式（虚拟网卡全局代理）
   final bool tunEnabled;
 
@@ -391,6 +394,7 @@ class ProxyConfig {
     this.localPort = 1080,
     this.socksPort = 1080,
     this.httpPort = 1081,
+    this.clashApiPort = 9090,
     this.tunEnabled = false,
     this.systemProxy = false,
     this.lanSharing = false,
@@ -409,6 +413,7 @@ class ProxyConfig {
     int? localPort,
     int? socksPort,
     int? httpPort,
+    int? clashApiPort,
     bool? tunEnabled,
     bool? systemProxy,
     bool? lanSharing,
@@ -425,6 +430,7 @@ class ProxyConfig {
       localPort: localPort ?? this.localPort,
       socksPort: socksPort ?? this.socksPort,
       httpPort: httpPort ?? this.httpPort,
+      clashApiPort: clashApiPort ?? this.clashApiPort,
       tunEnabled: tunEnabled ?? this.tunEnabled,
       systemProxy: systemProxy ?? this.systemProxy,
       lanSharing: lanSharing ?? this.lanSharing,
@@ -444,6 +450,7 @@ class ProxyConfig {
     'local_port': localPort,
     'socks_port': socksPort,
     'http_port': httpPort,
+    'clash_api_port': clashApiPort,
     'tun_enabled': tunEnabled,
     'system_proxy': systemProxy,
     'lan_sharing': lanSharing,
@@ -464,6 +471,7 @@ class ProxyConfig {
     localPort: json['local_port'] as int? ?? 1080,
     socksPort: json['socks_port'] as int? ?? 1080,
     httpPort: json['http_port'] as int? ?? 1081,
+    clashApiPort: json['clash_api_port'] as int? ?? 9090,
     tunEnabled: json['tun_enabled'] as bool? ?? false,
     systemProxy: json['system_proxy'] as bool? ?? false,
     lanSharing: json['lan_sharing'] as bool? ?? false,
