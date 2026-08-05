@@ -31,12 +31,13 @@ class ConfigStorageService {
 
   /// 同步初始化（fire-and-forget）
   ///
-  /// 启动 SharedPreferences 异步加载，但不阻塞调用方
-  /// 加载完成前调用 loadXxx() 会抛出 StateError
-  /// 推荐使用 [init] 替代，确保初始化完成后再读取数据
-  void initSync() {
-    if (_prefs != null) return;
-    SharedPreferences.getInstance()
+  /// 启动 SharedPreferences 异步加载，但不阻塞调用方。
+  /// 返回 Future，需要确保就绪时可 await；
+  /// 未等待完成就调用 loadXxx() 会抛出 StateError（被 load 内部捕获后返回默认值）。
+  /// 推荐使用 [init] 替代，确保初始化完成后再读取数据。
+  Future<void> initSync() {
+    if (_prefs != null) return Future.value();
+    return SharedPreferences.getInstance()
         .then((prefs) {
           _prefs = prefs;
         })

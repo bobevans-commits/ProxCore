@@ -254,7 +254,12 @@ class _KernelSettingsScreenState extends State<KernelSettingsScreen> {
 
     if (confirmed == true) {
       await manager.deleteKernel(type);
-      if (mounted) {
+      if (!mounted) return;
+      if (manager.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: ${manager.error}')),
+        );
+      } else {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('${type.label} 已删除')));

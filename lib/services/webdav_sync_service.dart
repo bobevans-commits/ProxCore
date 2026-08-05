@@ -184,7 +184,8 @@ class WebDavSyncService extends ChangeNotifier {
 
   /// 序列化为 JSON
   ///
-  /// 密码使用 Base64 编码存储，避免明文暴露
+  /// 密码以 Base64 编码存储。注意：Base64 可逆，不是加密，
+  /// 仅避免配置文件中明文直写；敏感环境请使用系统凭据管理
   Map<String, dynamic> toJson() => {
     'server_url': _serverUrl,
     'username': _username,

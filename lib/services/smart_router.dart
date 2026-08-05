@@ -140,13 +140,16 @@ class SmartRouter extends ChangeNotifier {
     } else {
       final newSuccess = existing.successfulConnects + (success ? 1 : 0);
       final newFail = existing.failedConnects + (success ? 0 : 1);
+      // 存储与评分统一使用封顶后的计数，避免超过 _maxHistory 后两者脱节
+      final cappedSuccess = min(newSuccess, _maxHistory);
+      final cappedFail = min(newFail, _maxHistory);
       _scores[node.id] = existing.copyWith(
-        successfulConnects: min(newSuccess, _maxHistory),
-        failedConnects: min(newFail, _maxHistory),
+        successfulConnects: cappedSuccess,
+        failedConnects: cappedFail,
         lastUsed: DateTime.now(),
         score: _calculateScore(
-          newSuccess,
-          newFail,
+          cappedSuccess,
+          cappedFail,
           existing.avgLatencyMs,
           existing.avgDownloadSpeed,
         ),

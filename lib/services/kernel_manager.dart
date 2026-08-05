@@ -134,11 +134,18 @@ class KernelManager extends ChangeNotifier {
       final url = Uri.parse(
         'https://api.github.com/repos/${type.repo}/releases/latest',
       );
-      final request = await client.getUrl(url);
-      final response = await request.close();
+      final request = await client
+          .getUrl(url)
+          .timeout(const Duration(seconds: 15));
+      final response = await request
+          .close()
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
+        final body = await response
+            .transform(utf8.decoder)
+            .join()
+            .timeout(const Duration(seconds: 15));
         final json = jsonDecode(body) as Map<String, dynamic>;
         final tagName = json['tag_name'] as String;
         return tagName.replaceFirst('v', '');
@@ -166,11 +173,18 @@ class KernelManager extends ChangeNotifier {
       final url = Uri.parse(
         'https://api.github.com/repos/${type.repo}/releases?per_page=$count',
       );
-      final request = await client.getUrl(url);
-      final response = await request.close();
+      final request = await client
+          .getUrl(url)
+          .timeout(const Duration(seconds: 15));
+      final response = await request
+          .close()
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
+        final body = await response
+            .transform(utf8.decoder)
+            .join()
+            .timeout(const Duration(seconds: 15));
         final list = jsonDecode(body) as List;
         return list.map((item) {
           final assets = (item['assets'] as List?) ?? [];
@@ -237,33 +251,44 @@ class KernelManager extends ChangeNotifier {
       }
 
       final client = HttpClient();
-      final request = await client.getUrl(Uri.parse(url));
-      final response = await request.close();
+      // 压缩包路径，供下载完成后的解压步骤使用
+      late String archivePath;
+      try {
+        final request = await client
+            .getUrl(Uri.parse(url))
+            .timeout(const Duration(seconds: 30));
+        final response = await request
+            .close()
+            .timeout(const Duration(seconds: 30));
 
-      if (response.statusCode != 200) {
-        client.close();
-        throw Exception('Download failed: HTTP ${response.statusCode}');
-      }
-
-      final totalBytes = response.contentLength;
-      final ext = url.endsWith('.zip') ? '.zip' : '.gz';
-      final archivePath = '${dir.path}/${type.name}_download$ext';
-      final file = File(archivePath);
-      final sink = file.openWrite();
-      int receivedBytes = 0;
-
-      await for (final chunk in response) {
-        sink.add(chunk);
-        receivedBytes += chunk.length;
-        if (totalBytes > 0) {
-          _downloadProgress = receivedBytes / totalBytes;
-        } else {
-          _downloadProgress = null;
+        if (response.statusCode != 200) {
+          throw Exception('Download failed: HTTP ${response.statusCode}');
         }
-        notifyListeners();
+
+        final totalBytes = response.contentLength;
+        final ext = url.endsWith('.zip') ? '.zip' : '.gz';
+        archivePath = '${dir.path}/${type.name}_download$ext';
+        final file = File(archivePath);
+        final sink = file.openWrite();
+        try {
+          int receivedBytes = 0;
+          await for (final chunk in response) {
+            sink.add(chunk);
+            receivedBytes += chunk.length;
+            if (totalBytes > 0) {
+              _downloadProgress = receivedBytes / totalBytes;
+            } else {
+              _downloadProgress = null;
+            }
+            notifyListeners();
+          }
+        } finally {
+          // 中断时也必须关闭 sink，避免文件句柄泄漏
+          await sink.close();
+        }
+      } finally {
+        client.close();
       }
-      await sink.close();
-      client.close();
 
       _downloadProgress = null;
       _statusMap[type] = KernelStatus.installing;
@@ -278,6 +303,8 @@ class KernelManager extends ChangeNotifier {
         version: version,
         binaryPath: '${dir.path}/${getBinaryName(type)}',
       );
+      // 持久化版本号，重启后 _readInstalledVersion 可恢复
+      await File('${dir.path}/${type.name}.version').writeAsString(version);
       _error = null;
     } catch (e) {
       _downloadProgress = null;
@@ -311,7 +338,7 @@ class KernelManager extends ChangeNotifier {
     final bytes = await file.readAsBytes();
 
     if (archivePath.endsWith('.zip')) {
-      await _extractZip(bytes, targetDir);
+      await _extractZip(bytes, targetDir, type);
     } else if (archivePath.endsWith('.gz')) {
       await _extractGz(bytes, targetDir, type);
     }
@@ -326,16 +353,39 @@ class KernelManager extends ChangeNotifier {
   }
 
   /// 解压 ZIP 格式压缩包到目标目录
-  Future<void> _extractZip(List<int> bytes, String targetDir) async {
+  ///
+  /// 官方发布包通常含顶层目录（如 sing-box-1.10.0-windows-amd64/），
+  /// 且 mihomo 的主程序名为 mihomo-windows-amd64.exe 而非 mihomo.exe。
+  /// 因此这里将所有文件平铺到目标目录（只取文件名，天然防 zip-slip 路径穿越），
+  /// 随后把匹配内核关键字的主程序重命名为标准二进制名，供 _checkInstalled 识别。
+  Future<void> _extractZip(
+    List<int> bytes,
+    String targetDir,
+    KernelType type,
+  ) async {
     final archive = ZipDecoder().decodeBytes(bytes);
     for (final file in archive) {
-      final filename = file.name;
-      if (filename.endsWith('/')) {
-        await Directory('$targetDir/$filename').create(recursive: true);
-      } else {
-        final outputFile = File('$targetDir/$filename');
-        await outputFile.parent.create(recursive: true);
-        await outputFile.writeAsBytes(file.content);
+      if (!file.isFile) continue;
+      // 只取文件名，丢弃目录路径：阻止 '../' 等路径穿越（zip-slip）
+      final name = file.name.split('/').last;
+      if (name.isEmpty) continue;
+      final outputFile = File('$targetDir/$name');
+      await outputFile.writeAsBytes(file.content);
+    }
+
+    final expected = getBinaryName(type);
+    final expectedFile = File('$targetDir/$expected');
+    if (await expectedFile.exists()) return;
+
+    // 将匹配内核关键字的主程序重命名为标准二进制名
+    final keyword = expected.replaceAll('.exe', '');
+    final dir = Directory(targetDir);
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      final fileName = entity.path.split(Platform.pathSeparator).last;
+      if (fileName.contains(keyword)) {
+        await entity.rename(expectedFile.path);
+        return;
       }
     }
   }
@@ -374,9 +424,15 @@ class KernelManager extends ChangeNotifier {
         await binaryFile.delete();
       }
 
+      final versionFile = File('${dir.path}/${type.name}.version');
+      if (await versionFile.exists()) {
+        await versionFile.delete();
+      }
+
       _statusMap[type] = KernelStatus.notInstalled;
       _kernels.remove(type);
       _versionMap.remove(type);
+      _error = null;
     } catch (e) {
       _error = 'Delete failed: $e';
     }

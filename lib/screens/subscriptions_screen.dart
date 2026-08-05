@@ -67,14 +67,36 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               return _SubscriptionTile(
                 subscription: sub,
                 onRefresh: () async {
-                  final nodes = await subService.refreshSubscription(sub.id);
-                  if (nodes.isNotEmpty && context.mounted) {
-                    proxyService.addNodes(nodes);
+                  try {
+                    final nodes = await subService.refreshSubscription(sub.id);
+                    if (!context.mounted) return;
+                    if (subService.error != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('刷新失败: ${subService.error}'),
+                          duration: const Duration(seconds: 3),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                    if (nodes.isNotEmpty) {
+                      proxyService.addNodes(nodes);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已导入 ${nodes.length} 个节点'),
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('已导入 ${nodes.length} 个节点'),
-                          duration: const Duration(seconds: 2),
+                          content: Text('刷新失败: $e'),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -176,17 +198,26 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
                 final nodes = await subService.refreshSubscription(sub.id);
-                if (nodes.isNotEmpty) {
-                  proxyService.addNodes(nodes);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('已导入 ${nodes.length} 个节点'),
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
+                if (!context.mounted) return;
+                if (subService.error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '订阅已添加，但导入节点失败: ${subService.error}',
                       ),
-                    );
-                  }
+                      duration: const Duration(seconds: 3),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } else if (nodes.isNotEmpty) {
+                  proxyService.addNodes(nodes);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('已导入 ${nodes.length} 个节点'),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 }
               }
             },
@@ -319,17 +350,24 @@ class _SubscriptionSummary extends StatelessWidget {
                 final subService = context.read<SubscriptionService>();
                 final proxyService = context.read<ProxyService>();
                 final nodes = await subService.refreshAll();
-                if (nodes.isNotEmpty) {
+                if (!context.mounted) return;
+                if (subService.error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('部分订阅刷新失败: ${subService.error}'),
+                      duration: const Duration(seconds: 3),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } else if (nodes.isNotEmpty) {
                   proxyService.addNodes(nodes);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('已导入 ${nodes.length} 个节点'),
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('已导入 ${nodes.length} 个节点'),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 }
               },
               icon: const Icon(Icons.refresh, size: 18),

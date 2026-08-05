@@ -99,6 +99,8 @@ void main() async {
     appWindow.size = initialSize;
     appWindow.alignment = Alignment.center;
     appWindow.title = 'ProxCore';
+    // 托盘"显示主窗口"菜单项依赖窗口已就绪，故在此注入
+    trayService?.onShowWindow = () => appWindow.show();
     appWindow.show();
   });
 }

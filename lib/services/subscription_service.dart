@@ -69,35 +69,74 @@ class SubscriptionService extends ChangeNotifier {
 
   /// 设置自动刷新间隔
   ///
-  /// [minutes] 刷新间隔（分钟），0 表示关闭自动刷新
+  /// [minutes] 全局刷新间隔（分钟），0 表示关闭自动刷新。
+  /// 实际心跳周期取全局间隔与各订阅 updateIntervalMinutes 的最小值，
+  /// 使订阅的自定义间隔真正生效；每次心跳只刷新到期的订阅。
   void setupAutoRefresh(int minutes) {
-    _autoRefreshTimer?.cancel();
     _refreshMinutes = minutes;
-
-    if (minutes > 0) {
-      _autoRefreshTimer = Timer.periodic(
-        Duration(minutes: minutes),
-        (_) => _autoRefreshAll(),
-      );
-    }
+    _rescheduleAutoRefresh();
   }
 
-  /// 自动刷新所有订阅
+  /// 重新调度自动刷新定时器
   ///
-  /// 刷新完成后通过 onNodesRefreshed 回调通知 ProxyService
+  /// 心跳周期 = min(全局间隔, 各订阅间隔中的最小值)，
+  /// 订阅增删改后调用以保持周期最新
+  void _rescheduleAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+
+    if (_refreshMinutes <= 0) return;
+
+    var heartbeat = _refreshMinutes;
+    for (final sub in _subscriptions) {
+      if (sub.updateIntervalMinutes > 0 &&
+          sub.updateIntervalMinutes < heartbeat) {
+        heartbeat = sub.updateIntervalMinutes;
+      }
+    }
+
+    _autoRefreshTimer = Timer.periodic(
+      Duration(minutes: heartbeat),
+      (_) => _autoRefreshAll(),
+    );
+  }
+
+  /// 自动刷新到期的订阅
+  ///
+  /// 只刷新满足自身更新间隔的订阅，刷新完成后通过
+  /// onNodesRefreshed 回调通知 ProxyService
   Future<void> _autoRefreshAll() async {
     if (_subscriptions.isEmpty) return;
 
-    final allNodes = await refreshAll();
+    final dueIds = _subscriptions.where(_isDue).map((s) => s.id).toList();
+    if (dueIds.isEmpty) return;
+
+    final allNodes = <NodeConfig>[];
+    for (final id in dueIds) {
+      final nodes = await refreshSubscription(id);
+      allNodes.addAll(nodes);
+    }
     if (allNodes.isNotEmpty && onNodesRefreshed != null) {
       await onNodesRefreshed!(allNodes);
     }
+  }
+
+  /// 判断订阅是否到自动刷新时间
+  ///
+  /// 间隔 <= 0 表示该订阅不参与自动刷新；
+  /// 从未刷新过（lastUpdated 为 null）的订阅立即视为到期
+  bool _isDue(SubscriptionInfo sub) {
+    if (sub.updateIntervalMinutes <= 0) return false;
+    if (sub.lastUpdated == null) return true;
+    return DateTime.now().difference(sub.lastUpdated!) >=
+        Duration(minutes: sub.updateIntervalMinutes);
   }
 
   /// 添加新订阅
   Future<void> addSubscription(SubscriptionInfo subscription) async {
     _subscriptions.add(subscription);
     await _save();
+    _rescheduleAutoRefresh();
     notifyListeners();
   }
 
@@ -105,6 +144,7 @@ class SubscriptionService extends ChangeNotifier {
   Future<void> removeSubscription(String id) async {
     _subscriptions.removeWhere((s) => s.id == id);
     await _save();
+    _rescheduleAutoRefresh();
     notifyListeners();
   }
 
@@ -114,6 +154,7 @@ class SubscriptionService extends ChangeNotifier {
     if (index >= 0) {
       _subscriptions[index] = subscription;
       await _save();
+      _rescheduleAutoRefresh();
       notifyListeners();
     }
   }
@@ -158,13 +199,24 @@ class SubscriptionService extends ChangeNotifier {
   /// 刷新所有订阅，返回合并后的节点列表
   Future<List<NodeConfig>> refreshAll() async {
     final allNodes = <NodeConfig>[];
+    var failedCount = 0;
     for (final sub in _subscriptions) {
       try {
         final nodes = await refreshSubscription(sub.id);
-        allNodes.addAll(nodes);
+        if (_error != null) {
+          // refreshSubscription 失败时内部已设置 _error 并返回空列表
+          failedCount++;
+        } else {
+          allNodes.addAll(nodes);
+        }
       } catch (e) {
+        failedCount++;
         debugPrint('SubscriptionService: refresh ${sub.name} failed: $e');
       }
+    }
+    if (failedCount > 0) {
+      _error = '$failedCount subscription(s) failed to refresh';
+      notifyListeners();
     }
     return allNodes;
   }

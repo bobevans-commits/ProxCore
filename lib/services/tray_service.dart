@@ -24,6 +24,9 @@ class TrayService with TrayListener {
   /// 托盘是否已初始化
   bool _initialized = false;
 
+  /// 显示主窗口回调（由 main.dart 在窗口就绪后注入）
+  VoidCallback? onShowWindow;
+
   /// 构造托盘服务
   ///
   /// [proxyService] 代理服务实例，用于控制代理启停和获取状态
@@ -82,10 +85,12 @@ class TrayService with TrayListener {
               ),
               MenuItem(
                 key: 'mode_global',
-                label:
-                    '${config.tunEnabled && config.lanSharing ? "✓ " : "  "}全局模式',
+                label: '${config.tunEnabled ? "✓ " : "  "}全局模式',
               ),
-              MenuItem(key: 'mode_direct', label: '  直连模式'),
+              MenuItem(
+                key: 'mode_direct',
+                label: '${isRunning ? "  " : "✓ "}直连模式',
+              ),
             ],
           ),
         ),
@@ -138,9 +143,8 @@ class TrayService with TrayListener {
         }
         break;
       case 'mode_rule':
-        _proxyService.updateConfig(
-          _proxyService.config.copyWith(tunEnabled: false),
-        );
+        // 与 toggleTun 行为一致：关闭 TUN 并自动重启应用新配置
+        _proxyService.toggleTun(false);
         break;
       case 'mode_global':
         _proxyService.toggleTun(true);
@@ -151,11 +155,16 @@ class TrayService with TrayListener {
         }
         break;
       case 'show':
+        onShowWindow?.call();
         break;
       case 'exit':
-        _proxyService.stop().then((_) {
-          destroy().then((_) => exit(0));
-        });
+        // 确保任何一步失败都不会阻塞退出
+        _proxyService
+            .stop()
+            .then((_) => destroy())
+            .catchError((_) {})
+            .then((_) => exit(0));
+        break;
     }
     _buildMenu();
   }
