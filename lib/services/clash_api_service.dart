@@ -21,7 +21,13 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 /// - 自动断线重连（3秒间隔）
 class ClashApiService extends ChangeNotifier {
   /// HTTP 客户端，用于 RESTful API 调用
-  final Dio _dio = Dio();
+  final Dio _dio;
+
+  /// 构造函数
+  ///
+  /// [dio] 可选的 Dio 实例，传入则使用该实例（便于测试注入 mock），
+  /// 未传入时内部创建默认 Dio
+  ClashApiService({Dio? dio}) : _dio = dio ?? Dio();
 
   /// WebSocket 通道，用于实时流量监听
   WebSocketChannel? _wsChannel;
