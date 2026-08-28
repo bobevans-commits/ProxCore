@@ -133,9 +133,19 @@ class ProxyService extends ChangeNotifier {
   ///
   /// 计算方式：当前累计字节 - 上次累计字节 = 每秒速度
   /// 同时将速度记录追加到历史列表（保留60秒）
+  ///
+  /// 通知策略（避免空闲时 UI 无效重建）：
+  /// - 运行中：每秒通知（速度数字、流量曲线需实时刷新）
+  /// - 已停止：仅当速度值发生变化时通知一次（如停止后速度归零），
+  ///   之后速度保持 0 不再通知，UI 不再每秒重建
   void _updateSpeed() {
-    _uploadSpeed = _uploadBytes - _lastUploadBytes;
-    _downloadSpeed = _downloadBytes - _lastDownloadBytes;
+    final newUploadSpeed = _uploadBytes - _lastUploadBytes;
+    final newDownloadSpeed = _downloadBytes - _lastDownloadBytes;
+    final speedChanged =
+        newUploadSpeed != _uploadSpeed || newDownloadSpeed != _downloadSpeed;
+
+    _uploadSpeed = newUploadSpeed;
+    _downloadSpeed = newDownloadSpeed;
     _lastUploadBytes = _uploadBytes;
     _lastDownloadBytes = _downloadBytes;
 
@@ -152,7 +162,9 @@ class ProxyService extends ChangeNotifier {
       }
     }
 
-    notifyListeners();
+    if (isRunning || speedChanged) {
+      notifyListeners();
+    }
   }
 
   // ---- 配置管理 ----
@@ -220,7 +232,21 @@ class ProxyService extends ChangeNotifier {
   // ---- 节点管理 ----
 
   /// 添加单个节点
+  ///
+  /// 按 `address:port:protocol` 键去重（与 [addNodes] 行为一致）：
+  /// 已存在相同地址/端口/协议的节点时忽略本次添加
   void addNode(NodeConfig node) {
+    final exists = _nodes.any((n) =>
+        n.address == node.address &&
+        n.port == node.port &&
+        n.protocol == node.protocol);
+    if (exists) {
+      _addLog(
+        '[ProxyService] Node ignored (duplicate): '
+        '${node.address}:${node.port}/${node.protocol.name}',
+      );
+      return;
+    }
     _nodes.add(node);
     _storage.saveNodes(_nodes);
     notifyListeners();
