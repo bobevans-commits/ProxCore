@@ -1,6 +1,6 @@
 # ProxCore - 单元测试套件
 
-> 最后更新: 2026-06-04 | 测试状态: 107 / 107 通过 ✅
+> 最后更新: 2026-08-28 | 测试状态: 166 / 166 通过 ✅
 
 ## Flutter UI 层测试
 
@@ -22,7 +22,10 @@ flutter analyze         # 静态分析
 | `test/singbox_adapter_test.dart` | 14 | 9 种协议 outbound / TUN / LAN 共享 / Clash API |
 | `test/mihomo_v2ray_adapter_test.dart` | 16 | mihomo + v2ray 协议转换 / TLS / Reality / WS / gRPC |
 | `test/dns_config_builder_test.dart` | 6 | DNS 配置跨 3 内核 / 4 种模式 |
-| **合计** | **107** | **全部通过** ✅ |
+| `test/proxy_service_test.dart` | 18 | 节点增删改查 / 去重 / 路由规则 / 持久化 / 导入导出 / 空闲通知回归 |
+| `test/kernel_manager_test.dart` | 16 | 二进制命名 / 默认状态 / init 检测 / KernelInfo 模型 / 下载 URL |
+| `test/clash_api_service_test.dart` | 25 | ClashProxy/ClashConnection/ClashLogEntry 模型 / configure / disconnect / REST API mock |
+| **合计** | **166** | **全部通过** ✅ |
 
 ### 详细覆盖项
 
@@ -174,6 +177,99 @@ flutter analyze         # 静态分析
 - mihomo nameserver 模式
 - v2ray system 模式
 - v2ray 自定义 DNS servers
+
+#### 6. ProxyService 服务层 (`proxy_service_test.dart`)
+
+**依赖处理**: SharedPreferences mock + 未 init 的 KernelManager 实例（测试路径不触及 Process）
+
+**初始化**
+- `init` 加载空默认值（stopped / 空 nodes / 空 rules）
+- `init` 从持久化存储恢复节点和规则
+
+**节点管理**
+- `addNode` 添加新节点
+- `addNode` 相同 address:port:protocol 的节点被去重忽略
+- `addNode` 地址/端口/协议任一不同则不去重
+- `addNodes` 批量添加自动去重（含批内重复）
+- `updateNode` 按 id 更新节点
+- `updateNode` 不存在的 id 不产生变化
+- `deleteNode` 按 id 删除节点
+- `clearNodes` 清空所有节点
+- 节点变更自动持久化（新实例可读回）
+
+**路由规则管理**
+- `addRoutingRule` / `updateRoutingRules` / `deleteRoutingRule`
+
+**配置与导入导出**
+- `updateConfig` 更新并持久化
+- `exportConfig` / `importConfig` 往返保持数据一致
+- `importConfig` 非法 JSON 返回 false
+
+**空闲通知策略（回归测试）**
+- 停止状态下速度无变化时不每秒触发 `notifyListeners`
+
+#### 7. KernelManager 服务层 (`kernel_manager_test.dart`)
+
+**二进制命名与默认状态**
+- `getBinaryName` 三种内核类型命名正确（平台相关 .exe 后缀）
+- `getStatus` 未初始化返回 notInstalled
+- `isInstalled` 未初始化返回 false
+- `error` 初始为 null
+- `clearError` 触发通知
+
+**安装检测**
+- `getBinaryPath` 未安装时返回内核目录默认路径
+- `init` 为所有内核类型填充状态且不抛异常
+- `init` 后 `isInstalled` 与 statusMap 状态一致
+
+**KernelInfo 模型**
+- `fileName` 按平台追加 .exe 后缀
+- `displayName` 三种内核显示名正确
+- `copyWith` 仅覆盖指定字段
+- `buildDownloadUrl` sing-box windows/amd64
+- `buildDownloadUrl` mihomo linux/arm64
+- `buildDownloadUrl` v2ray windows/amd64 使用 64 后缀
+
+**KernelReleaseInfo 模型**
+- `version` 去除 v 前缀 / 无前缀原样返回
+
+#### 8. ClashApiService 服务层 (`clash_api_service_test.dart`)
+
+**依赖处理**: 自定义 `MockHttpClientAdapter` 实现 `HttpClientAdapter` 接口，按 method+path 返回预设 JSON；不调用 `dispose()` 避免异步 `notifyListeners` 泄漏
+
+**ClashProxy 模型**
+- `fromJson` 基本解析 / 带延迟历史 / 带代理组
+- `isGroup` 识别 Selector/URLTest/Fallback
+- `fromJson` 缺失字段安全处理
+
+**ClashConnection 模型**
+- `fromJson` 基本解析 / host 回退 destinationIP / 缺失字段 / 非法 start 时间回退
+
+**ClashLogEntry 模型**
+- 构造与字段访问
+
+**服务初始状态**
+- 默认值正确（liveUpload/liveDownload/connections/realtimeLogs/currentProxyMode/isConnected）
+
+**configure()**
+- 设置 API 地址和密钥
+- 去除尾部斜杠
+- 无密钥时不设置 Authorization
+
+**disconnect()**
+- 断开连接后流量归零并通知
+
+**REST API（mock Dio adapter）**
+- `getProxies` 返回解析后的节点列表
+- `getProxies` 404 时返回空列表
+- `switchProxy` 发送 PUT 请求（验证 method/path/data）
+- `switchProxy` 服务器错误时不抛异常
+- `setProxyMode` 更新模式并通知
+- `setProxyMode` 服务器错误时不更新模式
+- `fetchConnections` 更新连接列表并通知
+- `fetchConnections` 空连接列表
+- `closeAllConnections` 清空连接并通知
+- `closeAllConnections` 服务器错误时不清空
 
 ## 持续集成 (CI)
 

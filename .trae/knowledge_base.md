@@ -1,6 +1,6 @@
 # ProxCore 知识库索引
 
-> 更新: 2026-05-12 | 版本: 1.0.0+1 | SDK: ^3.11.5 | 包名: proxcore
+> 更新: 2026-08-28 | 版本: 1.0.0+1 | SDK: ^3.11.5 | 包名: proxcore
 
 ## 项目概述
 
@@ -270,3 +270,20 @@ proxyService.setSystemProxy(enable)
 8. **系统代理生命周期**: start→apply / stop→remove / crash→remove / dispose→remove
 9. **订阅自动刷新**: SubscriptionService.setupAutoRefresh(minutes) → onNodesRefreshed→addNodes
 10. **智能节点**: start()时若smartNode=true，先_pickSmartNode()测速选最优再连接
+
+## 项目健康检查 (2026-08-28)
+
+### 代码规模
+- lib/ 39个文件 ~11,600行；test/ 6个文件 ~1,560行；总计 ~13,200行
+- 最大文件: home_screen(923) / settings_screen(760) / kernel_settings_screen(674) / proxy_service(652)
+
+### 质量指标
+- `flutter analyze`: 0 issues ✅
+- `flutter test`: 166 tests all passed ✅（2026-08-28 新增 proxy_service_test 18 例 + kernel_manager_test 16 例 + clash_api_service_test 25 例）
+
+### 已知观察点
+1. ~~`_speedTimer` 每秒tick无条件调用 `notifyListeners()`~~ **已修复(2026-08-28)**: `_updateSpeed` 仅在 `isRunning || 速度值变化` 时通知；运行中每秒刷新(速度数字/曲线)，停止后速度归零通知一次，空闲不再重建UI（_UptimeText 自带内部Timer不受影响；proxy_service_test.dart 有回归用例）
+2. ~~`addNode` 单节点添加无去重~~ **已修复(2026-08-28)**: addNode 按 `address:port:protocol` 去重，重复时记日志忽略，与 addNodes 行为一致（有测试覆盖）
+3. `assets/bin/` 含 sing-box.exe/xray.exe/geo 数据，但 pubspec.yaml 未声明该目录（打包不包含，仅本地运行用）
+4. ~~服务层无单元测试~~ **已完成(2026-08-28)**: ProxyService(节点/规则/持久化/导入导出/空闲通知) + KernelManager(命名/状态/init/模型) + ClashApiService(模型/configure/disconnect/REST API mock) 均已覆盖；内核下载流程仍未覆盖（需 mock HttpClient 下载+解压）
+5. ios/web 平台目录存在但非支持目标
